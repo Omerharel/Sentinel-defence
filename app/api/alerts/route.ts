@@ -32,7 +32,7 @@ export async function GET(request: Request) {
           ...body,
           error: {
             message: `לא ניתן למשוך נתונים מ־oref-map (history HTTP ${history.status}, live HTTP ${live.status}).`,
-            hint: 'ב־Vercel ודא ש־OREF_MAP_PROXY_BASE_URL אינו localhost; אם חוסמים את ה־IP של Vercel, שקול פרוקסי משלך או שדרוג Pro עם maxDuration ארוך יותר.',
+            hint: 'oref-map חוסם לעיתים IP של Vercel. האפליקציה מנסה גיבוי מ־Tzeva; אם גם הוא נכשל — פרוס את alerts-proxy עם מסלולי /api/history ו־/api/alerts ל־oref והגדר OREF_MAP_PROXY_BASE_URL לכתובת הפרוקסי.',
           },
         },
         {

@@ -2,6 +2,10 @@ declare namespace NodeJS {
   interface ProcessEnv {
     /** בסיס ל־oref-map style API: `/api/history`, `/api/alerts` (ברירת מחדל https://oref-map.org). */
     OREF_MAP_PROXY_BASE_URL?: string;
+    /** כבה גיבוי אוטומטי ל־Tzeva כש־oref חוסם (ערך `1`). */
+    SENTINEL_DISABLE_TZEVA_OREF_FALLBACK?: string;
+    /** דריסת URL ל־`alerts-history` של צבע אדום (גיבוי ל־oref). */
+    TZEVA_ALERTS_HISTORY_URL?: string;
   }
 }
 

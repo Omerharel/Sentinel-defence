@@ -1,4 +1,5 @@
 import type { AlertHistoryRow } from '@/lib/alert-normalize';
+import { fetchTzevaAlertsHistoryAsRows } from '@/lib/tzeva-alerts-history-rows';
 
 /**
  * Vercel Hobby — מקסימום ~10s לפונקציה; שני ה־fetch במקביל אז timeout לכל אחד חייב להישאר מתחת למגבלה הכוללת.
@@ -215,6 +216,16 @@ export async function fetchOrefMapProxyAsAlertRows(): Promise<OrefMapProxyFetchR
   if (!r.history.ok && !r.live.ok) {
     await new Promise((res) => setTimeout(res, 450));
     r = await fetchOrefMapProxyOnce();
+  }
+  if (!r.history.ok && !r.live.ok && r.rows.length === 0) {
+    const tzevaRows = await fetchTzevaAlertsHistoryAsRows(REQUEST_TIMEOUT_MS);
+    if (tzevaRows.length > 0) {
+      return {
+        rows: tzevaRows,
+        history: { ok: true, status: 200 },
+        live: { ok: true, status: 200 },
+      };
+    }
   }
   return r;
 }

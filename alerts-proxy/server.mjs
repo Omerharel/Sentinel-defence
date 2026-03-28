@@ -13,6 +13,15 @@ const TZEWA_URL =
   process.env.TZEWA_ALERTS_HISTORY_URL || 'https://api.tzevaadom.co.il/alerts-history';
 
 const DEFAULT_TZEWA_WS_UPSTREAM = 'wss://ws.tzevaadom.co.il/socket?platform=WEB';
+
+/** העתקת בקשות ל־oref-map (למשל כש־Vercel מקבל 403 ישירות). */
+const OREF_MAP_UPSTREAM = (process.env.OREF_MAP_UPSTREAM_URL || 'https://oref-map.org').replace(
+  /\/$/,
+  '',
+);
+
+const OREF_PASSTHROUGH_UA =
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
 /** Effective upstream for `/tzeva-socket` (env override, else default). */
 const TZEWA_WS_UPSTREAM =
   (process.env.TZEWA_WS_UPSTREAM_URL ?? '').trim() || DEFAULT_TZEWA_WS_UPSTREAM;
@@ -74,6 +83,43 @@ function tzevaSocketPlainGet(_req, res) {
 }
 app.get('/tzeva-socket', tzevaSocketPlainGet);
 app.get('/tzeva-socket/', tzevaSocketPlainGet);
+
+async function passthroughOrefMap(req, res, orefPath) {
+  const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+  const target = `${OREF_MAP_UPSTREAM}${orefPath}${q}`;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    const r = await fetch(target, {
+      method: 'GET',
+      cache: 'no-store',
+      redirect: 'follow',
+      signal: controller.signal,
+      headers: {
+        Accept: 'application/json, text/plain, */*',
+        'User-Agent': OREF_PASSTHROUGH_UA,
+      },
+    });
+    const text = await r.text();
+    const ct = r.headers.get('content-type') || 'application/json; charset=utf-8';
+    res.status(r.status).type(ct).send(text);
+  } catch (e) {
+    const message = e instanceof Error ? e.message : 'passthrough failed';
+    res.status(502).json({ ok: false, error: message, target: target.slice(0, 120) });
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+app.get('/api/history', (req, res) => {
+  void passthroughOrefMap(req, res, '/api/history');
+});
+app.get('/api/alerts', (req, res) => {
+  void passthroughOrefMap(req, res, '/api/alerts');
+});
+app.get('/api/day-history', (req, res) => {
+  void passthroughOrefMap(req, res, '/api/day-history');
+});
 
 app.get('/health', (_req, res) => {
   const upstreamFromEnv = !!(process.env.TZEWA_WS_UPSTREAM_URL ?? '').trim();
