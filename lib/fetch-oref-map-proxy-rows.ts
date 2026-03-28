@@ -1,7 +1,9 @@
 import type { AlertHistoryRow } from '@/lib/alert-normalize';
 
-/** שרתים קרים / Vercel — 6.5s עלול לבטל לפני ש־oref-map מגיב. */
-const REQUEST_TIMEOUT_MS = 20_000;
+/**
+ * Vercel Hobby — מקסימום ~10s לפונקציה; שני ה־fetch במקביל אז timeout לכל אחד חייב להישאר מתחת למגבלה הכוללת.
+ */
+const REQUEST_TIMEOUT_MS = 8_000;
 
 const DEFAULT_OREF_MAP_BASE = 'https://oref-map.org';
 
@@ -150,17 +152,18 @@ export async function fetchOrefUpstreamText(
   }
 }
 
-/**
- * שולף `/api/history` + `/api/alerts` מ־oref-map (או מופע עצמאי עם אותה צורת API).
- * @see https://github.com/maorcc/oref-map
- */
-export async function fetchOrefMapProxyAsAlertRows(): Promise<AlertHistoryRow[]> {
-  const base = getOrefMapProxyBaseUrl();
-  const [hist, live] = await Promise.all([
-    fetchOrefUpstreamText(`${base}/api/history`),
-    fetchOrefUpstreamText(`${base}/api/alerts`),
-  ]);
+export type OrefUpstreamHttpMeta = { ok: boolean; status: number };
 
+export type OrefMapProxyFetchResult = {
+  rows: AlertHistoryRow[];
+  history: OrefUpstreamHttpMeta;
+  live: OrefUpstreamHttpMeta;
+};
+
+function parseHistoryAndLiveResponses(
+  hist: Awaited<ReturnType<typeof fetchOrefUpstreamText>>,
+  live: Awaited<ReturnType<typeof fetchOrefUpstreamText>>,
+): OrefMapProxyFetchResult {
   const rows: AlertHistoryRow[] = [];
 
   if (hist.ok && hist.text) {
@@ -186,5 +189,32 @@ export async function fetchOrefMapProxyAsAlertRows(): Promise<AlertHistoryRow[]>
     }
   }
 
-  return rows;
+  return {
+    rows,
+    history: { ok: hist.ok, status: hist.status },
+    live: { ok: live.ok, status: live.status },
+  };
+}
+
+async function fetchOrefMapProxyOnce(): Promise<OrefMapProxyFetchResult> {
+  const base = getOrefMapProxyBaseUrl();
+  const [hist, live] = await Promise.all([
+    fetchOrefUpstreamText(`${base}/api/history`),
+    fetchOrefUpstreamText(`${base}/api/alerts`),
+  ]);
+  return parseHistoryAndLiveResponses(hist, live);
+}
+
+/**
+ * שולף `/api/history` + `/api/alerts` מ־oref-map (או מופע עצמאי עם אותה צורת API).
+ * ניסיון חוזר קצר אם שני ה־HTTP נכשלים (רשת / WAF חד־פעמי).
+ * @see https://github.com/maorcc/oref-map
+ */
+export async function fetchOrefMapProxyAsAlertRows(): Promise<OrefMapProxyFetchResult> {
+  let r = await fetchOrefMapProxyOnce();
+  if (!r.history.ok && !r.live.ok) {
+    await new Promise((res) => setTimeout(res, 450));
+    r = await fetchOrefMapProxyOnce();
+  }
+  return r;
 }
