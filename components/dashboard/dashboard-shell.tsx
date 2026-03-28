@@ -225,7 +225,7 @@ export function DashboardShell() {
     const now = Date.now();
     const events = historyEvents.filter((e) => isAlertEventInRightPanelListWindow(e, now));
 
-    /** לכל יישוב רק האירוע האחרון בזמן — כך "סיום אירוע" מחליף רקטה/מקדים לאותו יישוב. */
+    /** לכל יישוב רק האירוע האחרון בזמן — כך "סיום אירוע" מחליף רקטה/מקדים לאותו יישוב (מקדים/סיום: חלון 24ש׳ כדי לכלול גם Dleshem). */
     const sortedByTime = [...events].sort(
       (a, b) => Date.parse(a.timestamp) - Date.parse(b.timestamp),
     );

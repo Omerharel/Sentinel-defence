@@ -1,17 +1,23 @@
 /**
  * Tzeva Adom WebSocket `SYSTEM_MESSAGE` — התרעה מקדימה (`instructionType === 0`), סיום אירוע (`=== 1`),
- * כש־`NEXT_PUBLIC_TZEWA_WS_PROXY_URL` מוגדר.
+ * כש־`NEXT_PUBLIC_TZEWA_WS_PROXY_URL` מוגדר. כבוי: `NEXT_PUBLIC_SENTINEL_DISABLE_TZEWA_WS=1`.
  */
 
 import type { AlertEvent } from './alert-types';
 import { getRegionIdForCity } from './alert-geo';
 import { EARLY_WARNING_AND_ENDED_TTL_MS, inferEndedCategoryFromHebrewTitle } from './alert-normalize';
 
+/** `1` — לא לפתוח WebSocket לצבע אדום (גם אם מוגדר URL). */
+export function isTzevaWebSocketDisabled(): boolean {
+  return process.env.NEXT_PUBLIC_SENTINEL_DISABLE_TZEWA_WS === '1';
+}
+
 /**
  * WebSocket URL for the browser (typically your `alerts-proxy` path), e.g. `wss://host/tzeva-socket`.
- * If unset, {@link connectTzevaWebSocket} does not open a connection.
+ * If unset or disabled, {@link connectTzevaWebSocket} does not open a connection.
  */
 export function getTzevaWebSocketClientUrl(): string {
+  if (isTzevaWebSocketDisabled()) return '';
   return process.env.NEXT_PUBLIC_TZEWA_WS_PROXY_URL?.trim() ?? '';
 }
 
@@ -258,7 +264,11 @@ export function connectTzevaWebSocket(options: TzevaWebSocketOptions): () => voi
   const { onSystemMessage, onOpen, onClose, reconnectMs = 5000, wsUrl } = options;
   const connectUrl = (wsUrl ?? getTzevaWebSocketClientUrl()).trim();
   if (!connectUrl) {
-    if (typeof window !== 'undefined' && !warnedMissingTzevaWsUrl) {
+    if (
+      typeof window !== 'undefined' &&
+      !warnedMissingTzevaWsUrl &&
+      !isTzevaWebSocketDisabled()
+    ) {
       warnedMissingTzevaWsUrl = true;
       console.warn(
         '[Sentinel] Tzeva WebSocket URL missing: set TZEWA_WS_PROXY_URL or NEXT_PUBLIC_TZEWA_WS_PROXY_URL on the server (Vercel). Use TZEWA_WS_PROXY_URL to avoid build-time inlining issues; the app also reads /api/tzeva/ws-proxy-url at runtime.',

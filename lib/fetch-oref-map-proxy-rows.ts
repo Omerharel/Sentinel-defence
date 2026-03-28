@@ -263,7 +263,12 @@ export async function fetchOrefMapProxyAsAlertRows(): Promise<OrefMapProxyFetchR
     }
   }
 
-  if (!r.history.ok && !r.live.ok && r.rows.length === 0) {
+  if (
+    process.env.SENTINEL_DISABLE_TZEVA_OREF_FALLBACK !== '1' &&
+    !r.history.ok &&
+    !r.live.ok &&
+    r.rows.length === 0
+  ) {
     const tzevaRows = await fetchTzevaAlertsHistoryAsRows(REQUEST_TIMEOUT_MS);
     if (tzevaRows.length > 0) {
       r = {

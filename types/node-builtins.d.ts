@@ -1,8 +1,12 @@
 declare namespace NodeJS {
   interface ProcessEnv {
+    /** `1` — לא לחבר WebSocket לצבע אדום (דורש rebuild — משתנה NEXT_PUBLIC). */
+    NEXT_PUBLIC_SENTINEL_DISABLE_TZEVA_WS?: string;
+    /** פרוקסי WS (Railway alerts-proxy וכו׳). מתעלמים כש־NEXT_PUBLIC_SENTINEL_DISABLE_TZEWA_WS=1. */
+    NEXT_PUBLIC_TZEWA_WS_PROXY_URL?: string;
     /** בסיס ל־oref-map style API: `/api/history`, `/api/alerts` (ברירת מחדל https://oref-map.org). */
     OREF_MAP_PROXY_BASE_URL?: string;
-    /** כבה גיבוי אוטומטי ל־Tzeva כש־oref חוסם (ערך `1`). */
+    /** `1` — לא לקרוא ל־`alerts-history` של צבע אדום כגיבוי כש־oref נכשל (נשארים Dleshem CSV וכו׳). */
     SENTINEL_DISABLE_TZEVA_OREF_FALLBACK?: string;
     /** כבה מיזוג סוף ה־CSV מ־dleshem/israel-alerts-data (ערך `1`). */
     SENTINEL_DISABLE_DLESHEM_CSV?: string;

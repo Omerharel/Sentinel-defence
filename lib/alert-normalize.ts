@@ -77,17 +77,25 @@ export function isAlertEventInActiveWindow(e: AlertEvent, nowMs: number): boolea
 
 /**
  * היסטוריית מפגש: עד 24 שעות אחרי `timestamp` או בחלון פעיל (לפי קטגוריה).
- * משמש מפה + סליידר; הפאנל הימני מצמצם בנפרד ל־{@link ALERT_RIGHT_PANEL_LIST_MAX_AGE_MS}.
+ * משמש מפה + סליידר; בפאנל הימני גם מקדים וסיום אירוע (כולל מ־Dleshem CSV) נשארים בטווח הזה.
  */
 export const ALERT_LIST_HISTORY_RETENTION_MS = SESSION_ALERT_HISTORY_MS;
 
-/** פאנל ימני + יישור מפה ב"עכשיו": התראות ב־`timestamp` בטווח הזה. */
+/** פאנל ימני — רקטות / כטב״ם / וכו׳: רק אירועים צעירים מאוד ברשימה. */
 export const ALERT_RIGHT_PANEL_LIST_MAX_AGE_MS = 5 * MIN_MS;
 
+/**
+ * פאנל ימני: חלון זמן לפי קטגוריה.
+ * מקדים וסיום אירוע נשארים עד 24 שעות (כמו המפה) כדי שיופיעו גם כשמגיעים מ־CSV או מ־oref עם פער דקות.
+ */
 export function isAlertEventInRightPanelListWindow(e: AlertEvent, nowMs: number): boolean {
   const t = Date.parse(e.timestamp);
   if (Number.isNaN(t) || t > nowMs) return false;
-  return nowMs - t <= ALERT_RIGHT_PANEL_LIST_MAX_AGE_MS;
+  const maxAge =
+    e.category === 'early warning' || e.category === 'incident ended'
+      ? ALERT_LIST_HISTORY_RETENTION_MS
+      : ALERT_RIGHT_PANEL_LIST_MAX_AGE_MS;
+  return nowMs - t <= maxAge;
 }
 
 /** Active TTL window, or timestamp within last {@link ALERT_LIST_HISTORY_RETENTION_MS}. */
