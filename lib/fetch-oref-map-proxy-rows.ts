@@ -159,27 +159,56 @@ export type OrefMapProxyFetchResult = {
   rows: AlertHistoryRow[];
   history: OrefUpstreamHttpMeta;
   live: OrefUpstreamHttpMeta;
+  /** true כשנלקח מ־Tzeva אחרי כשלון oref — משפיע על תמהיל קטגוריות (איומים מול מקדים/סיום). */
+  usedTzevaFallback?: boolean;
+  /** true כשהוספנו `/api/history` מ־oref-map.org הציבורי אחרי כשלון history בבסיס הראשי (למשל פרוקסי שמחזיר רק live). */
+  usedOrefPublicHistorySupplement?: boolean;
 };
+
+function parseHistoryTextToRows(text: string): AlertHistoryRow[] {
+  const rows: AlertHistoryRow[] = [];
+  if (!text) return rows;
+  try {
+    const parsed = JSON.parse(text) as unknown;
+    if (Array.isArray(parsed)) {
+      for (const entry of parsed) {
+        const row = orefHistoryEntryToRow(entry);
+        if (row) rows.push(row);
+      }
+    }
+  } catch {
+    // ignore invalid history JSON
+  }
+  return rows;
+}
+
+function rowDedupeKey(row: AlertHistoryRow): string {
+  return `${row.alertDate}\0${row.data}\0${String(row.category ?? '')}\0${row.title}`;
+}
+
+function mergeRowsDedupe(primary: AlertHistoryRow[], extra: AlertHistoryRow[]): AlertHistoryRow[] {
+  const seen = new Set<string>();
+  const out: AlertHistoryRow[] = [];
+  for (const row of primary) {
+    const k = rowDedupeKey(row);
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(row);
+  }
+  for (const row of extra) {
+    const k = rowDedupeKey(row);
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(row);
+  }
+  return out;
+}
 
 function parseHistoryAndLiveResponses(
   hist: Awaited<ReturnType<typeof fetchOrefUpstreamText>>,
   live: Awaited<ReturnType<typeof fetchOrefUpstreamText>>,
 ): OrefMapProxyFetchResult {
-  const rows: AlertHistoryRow[] = [];
-
-  if (hist.ok && hist.text) {
-    try {
-      const parsed = JSON.parse(hist.text) as unknown;
-      if (Array.isArray(parsed)) {
-        for (const entry of parsed) {
-          const row = orefHistoryEntryToRow(entry);
-          if (row) rows.push(row);
-        }
-      }
-    } catch {
-      // ignore invalid history JSON
-    }
-  }
+  const rows: AlertHistoryRow[] = hist.ok && hist.text ? parseHistoryTextToRows(hist.text) : [];
 
   if (live.ok && live.text) {
     try {
@@ -217,6 +246,22 @@ export async function fetchOrefMapProxyAsAlertRows(): Promise<OrefMapProxyFetchR
     await new Promise((res) => setTimeout(res, 450));
     r = await fetchOrefMapProxyOnce();
   }
+
+  // ב־Vercel לעיתים `/api/history` דרך פרוקסי נכשל אבל `/api/alerts` עובד — נשארים רק רקטות/כלי טיס בלי מקדים/סיום.
+  // Tzeva alerts-history כולל רק איומים 0/5 (אין 7/13). השלמה מ־oref-map.org הציבורי משחזרת כותרות מלאות.
+  if (!r.history.ok) {
+    const pub = await fetchOrefUpstreamText(`${DEFAULT_OREF_MAP_BASE}/api/history`);
+    const extra = pub.ok && pub.text ? parseHistoryTextToRows(pub.text) : [];
+    if (extra.length > 0) {
+      r = {
+        rows: mergeRowsDedupe(r.rows, extra),
+        history: { ok: true, status: pub.status },
+        live: r.live,
+        usedOrefPublicHistorySupplement: true,
+      };
+    }
+  }
+
   if (!r.history.ok && !r.live.ok && r.rows.length === 0) {
     const tzevaRows = await fetchTzevaAlertsHistoryAsRows(REQUEST_TIMEOUT_MS);
     if (tzevaRows.length > 0) {
@@ -224,6 +269,7 @@ export async function fetchOrefMapProxyAsAlertRows(): Promise<OrefMapProxyFetchR
         rows: tzevaRows,
         history: { ok: true, status: 200 },
         live: { ok: true, status: 200 },
+        usedTzevaFallback: true,
       };
     }
   }

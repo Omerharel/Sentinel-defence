@@ -119,6 +119,35 @@ export function DashboardShell() {
           normalized = data as AlertsResponse;
         }
 
+        // #region agent log
+        {
+          const catHistogram: Record<string, number> = {};
+          for (const e of normalized.events) {
+            catHistogram[e.category] = (catHistogram[e.category] ?? 0) + 1;
+          }
+          void fetch('http://127.0.0.1:7812/ingest/694a707e-c89a-4075-b2a9-e8688dd5a0e9', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'a2558b' },
+            body: JSON.stringify({
+              sessionId: 'a2558b',
+              runId: 'post-fix',
+              hypothesisId: 'H1-H3-H5',
+              location: 'dashboard-shell.tsx:loadAlerts',
+              message: 'client received /api/alerts categories',
+              data: {
+                host: typeof window !== 'undefined' ? window.location.host : '',
+                catHistogram,
+                eventCount: normalized.events.length,
+                rawCount: normalized.rawCount,
+                xOrefUpstream: response.headers.get('X-Oref-Upstream'),
+                xOrefPublicHistorySupplement: response.headers.get('X-Oref-Public-History-Supplement'),
+              },
+              timestamp: Date.now(),
+            }),
+          }).catch(() => {});
+        }
+        // #endregion
+
         if (!isMounted) return;
 
         let newEndedCount = 0;
