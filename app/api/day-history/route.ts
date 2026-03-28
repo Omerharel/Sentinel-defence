@@ -29,24 +29,44 @@ export async function GET(request: Request) {
     }
 
     if (!ok) {
-      return NextResponse.json(
-        { error: `Upstream day-history HTTP ${status}` },
-        { status: 502 },
-      );
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('[day-history] upstream HTTP', status, upstream.slice(0, 80));
+      }
+      return NextResponse.json([], {
+        headers: {
+          'Cache-Control': 'no-store',
+          'X-Day-History-Fallback': `upstream-${status}`,
+        },
+      });
     }
 
     let data: unknown;
     try {
       data = JSON.parse(text) as unknown;
     } catch {
-      return NextResponse.json({ error: 'Invalid JSON from upstream' }, { status: 502 });
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('[day-history] invalid JSON from upstream', upstream.slice(0, 80));
+      }
+      return NextResponse.json([], {
+        headers: {
+          'Cache-Control': 'no-store',
+          'X-Day-History-Fallback': 'invalid-json',
+        },
+      });
     }
 
     return NextResponse.json(Array.isArray(data) ? data : [], {
       headers: { 'Cache-Control': 'no-store' },
     });
   } catch (e) {
-    const message = e instanceof Error ? e.message : 'day-history fetch failed';
-    return NextResponse.json({ error: message }, { status: 502 });
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('[day-history] fetch error', e);
+    }
+    return NextResponse.json([], {
+      headers: {
+        'Cache-Control': 'no-store',
+        'X-Day-History-Fallback': 'network',
+      },
+    });
   }
 }
