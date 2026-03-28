@@ -1,7 +1,6 @@
 'use client';
 
 import Image from 'next/image';
-import { useRef } from 'react';
 import { CheckCircle2, TriangleAlert } from 'lucide-react';
 
 import type { AlertCategory, AlertEvent, AlertEventSource } from '@/lib/alert-types';
@@ -107,9 +106,6 @@ export function RightPanel({
   error,
   onCityChipClick,
 }: RightPanelProps) {
-  /** זמן מוצג ננעל במפגש ראשון עם event.id (לא משתנה ב-poll גם אם השרת שולח timestamp אחר) */
-  const lockedListTimesRef = useRef<Record<string, string>>({});
-
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full px-6 py-4">
@@ -124,17 +120,6 @@ export function RightPanel({
         <p className="text-sm text-destructive">{error}</p>
       </div>
     );
-  }
-
-  const lock = lockedListTimesRef.current;
-  const activeIds = new Set(groupedAlerts.map((e) => e.id));
-  for (const id of Object.keys(lock)) {
-    if (!activeIds.has(id)) delete lock[id];
-  }
-  for (const e of groupedAlerts) {
-    if (lock[e.id] === undefined) {
-      lock[e.id] = formatDashboardTime(e.timestamp);
-    }
   }
 
   const groupedByCategory = new Map<AlertCategory, RightPanelProps['groupedAlerts']>();
@@ -210,7 +195,7 @@ export function RightPanel({
           </div>
         </div>
         <span className="ml-auto text-xs text-muted-foreground shrink-0 pt-0.5">
-          {lock[event.id] ?? formatDashboardTime(event.timestamp)}
+          {formatDashboardTime(event.timestamp)}
         </span>
       </div>
     </div>

@@ -29,7 +29,7 @@ const ALERT_POLYGONS_SOURCE_ID = 'alert-polygons';
 const ALERT_FILL_LAYER_ID = 'alert-polygons-fill';
 const ALERT_OUTLINE_LAYER_ID = 'alert-polygons-outline';
 
-/** כשהפלייהד קרוב ל־"עכשיו" — אותו חלון זמן כמו הפאנל הימני (5 דק׳). */
+/** כשהפלייהד קרוב ל־"עכשיו" — אותו חלון פעיל כמו הפאנל הימני (TTL / expiresAt). */
 const LIVE_PLAYHEAD_EPSILON_MS = 4000;
 
 function isAlertShownOnMapAtPlayhead(
