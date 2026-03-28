@@ -224,6 +224,17 @@ export function DashboardShell() {
   const groupedAlerts = useMemo(() => {
     const now = Date.now();
     const events = historyEvents.filter((e) => isAlertEventInRightPanelListWindow(e, now));
+
+    /** לכל יישוב רק האירוע האחרון בזמן — כך "סיום אירוע" מחליף רקטה/מקדים לאותו יישוב. */
+    const sortedByTime = [...events].sort(
+      (a, b) => Date.parse(a.timestamp) - Date.parse(b.timestamp),
+    );
+    const latestByCity = new Map<string, AlertEvent>();
+    for (const e of sortedByTime) {
+      latestByCity.set(e.city, e);
+    }
+    const perCityLatest = Array.from(latestByCity.values());
+
     const groups = new Map<
       string,
       {
@@ -236,7 +247,7 @@ export function DashboardShell() {
       }
     >();
 
-    for (const e of events) {
+    for (const e of perCityLatest) {
       const minuteKey = getAlertListMergeMinuteKey(e.timestamp);
       const groupKey = `${minuteKey}|${e.category}|${e.endedCategory ?? ''}`;
       const existing = groups.get(groupKey);

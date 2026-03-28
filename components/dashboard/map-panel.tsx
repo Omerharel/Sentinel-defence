@@ -2,9 +2,11 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { AlertEvent } from '@/lib/alert-types';
-import { buildAlertPointsGeoJSON } from '@/lib/alert-geo';
 import { cityNameToEnglish, normalizeMunicipalityLabel } from '@/lib/city-name-en';
-import { isAlertEventInActiveWindow } from '@/lib/alert-normalize';
+import {
+  isAlertEventInActiveWindow,
+  isAlertEventInRightPanelListWindow,
+} from '@/lib/alert-normalize';
 import {
   mapboxFillColorMatchExpression,
   mapboxOutlineColorMatchExpression,
@@ -24,9 +26,23 @@ import { loadLocationsPolygonsJson, resolvePhoLabelToMunKey } from '@/lib/mun-re
 import { MapTimelineStrip } from '@/components/dashboard/map-timeline-strip';
 
 const ALERT_POLYGONS_SOURCE_ID = 'alert-polygons';
-const ALERT_POINTS_SOURCE_ID = 'alert-points';
 const ALERT_FILL_LAYER_ID = 'alert-polygons-fill';
 const ALERT_OUTLINE_LAYER_ID = 'alert-polygons-outline';
+
+/** כשהפלייהד קרוב ל־"עכשיו" — אותו חלון זמן כמו הפאנל הימני (5 דק׳). */
+const LIVE_PLAYHEAD_EPSILON_MS = 4000;
+
+function isAlertShownOnMapAtPlayhead(
+  e: AlertEvent,
+  playheadMs: number,
+  liveNowMs: number,
+): boolean {
+  if (isAlertEventInActiveWindow(e, playheadMs)) return true;
+  if (Math.abs(playheadMs - liveNowMs) <= LIVE_PLAYHEAD_EPSILON_MS) {
+    return isAlertEventInRightPanelListWindow(e, liveNowMs);
+  }
+  return false;
+}
 
 /** Feed labels that never map to a single settlement polygon (no hex fallback for these). */
 function isExpectedNonPolygonCity(city: string): boolean {
@@ -269,7 +285,9 @@ export function MapPanel({
     const r = Math.min(1, Math.max(0, timelineEffectiveRatio));
     const playhead = span > 0 ? Math.round(tMin + r * span) : tMax;
     const clampedPlayhead = Math.min(tMax, Math.max(tMin, playhead));
-    const atPlayhead = merged.filter((e) => isAlertEventInActiveWindow(e, clampedPlayhead));
+    const atPlayhead = merged.filter((e) =>
+      isAlertShownOnMapAtPlayhead(e, clampedPlayhead, now),
+    );
 
     return {
       timelineRangeStartMs: tMin,
@@ -281,11 +299,10 @@ export function MapPanel({
     };
   }, [alerts, timelineClock, timelineEffectiveRatio, dayHistoryEvents]);
 
-  const { polygonGeoJson, pointGeoJson } = useMemo(() => {
+  const { polygonGeoJson } = useMemo(() => {
     if (!regionLookup) {
       return {
         polygonGeoJson: { type: 'FeatureCollection' as const, features: [] },
-        pointGeoJson: { type: 'FeatureCollection' as const, features: [] },
       };
     }
 
@@ -317,26 +334,8 @@ export function MapPanel({
       return [];
     });
 
-    const pointFeatures = dedupedAlerts.map((alert) => {
-      const munKey = resolvePhoLabelToMunKey(alert.city, munKeys);
-      const feature = regionLookup[munKey];
-
-      if (feature) {
-        let coords: number[][] = [];
-        if (feature.geometry.type === 'Polygon') coords = feature.geometry.coordinates[0];
-        return {
-          type: 'Feature' as const,
-          properties: { city: alert.city },
-          geometry: { type: 'Point' as const, coordinates: centroidOfPolygonRing(coords) },
-        };
-      }
-
-      return buildAlertPointsGeoJSON([alert]).features[0];
-    });
-
     return {
       polygonGeoJson: { type: 'FeatureCollection' as const, features: polygonFeatures },
-      pointGeoJson: { type: 'FeatureCollection' as const, features: pointFeatures },
     };
   }, [alertsAtPlayhead, regionLookup, munKeys]);
 
@@ -527,12 +526,6 @@ export function MapPanel({
             data: { type: 'FeatureCollection', features: [] },
           });
         }
-        if (!m.getSource(ALERT_POINTS_SOURCE_ID)) {
-          m.addSource(ALERT_POINTS_SOURCE_ID, {
-            type: 'geojson',
-            data: { type: 'FeatureCollection', features: [] },
-          });
-        }
 
         if (!m.getLayer(ALERT_FILL_LAYER_ID)) {
           m.addLayer({
@@ -610,10 +603,8 @@ export function MapPanel({
     const m = map.current;
     const ps = m.getSource(ALERT_POLYGONS_SOURCE_ID);
     if (ps) (ps as { setData: (d: object) => void }).setData(displayPolygonGeoJson as object);
-    const pts = m.getSource(ALERT_POINTS_SOURCE_ID);
-    if (pts) (pts as { setData: (d: object) => void }).setData(pointGeoJson as object);
     m.triggerRepaint();
-  }, [displayPolygonGeoJson, pointGeoJson, isLoaded]);
+  }, [displayPolygonGeoJson, isLoaded]);
 
   useEffect(() => {
     if (!focusCityRequest || !map.current || !isLoaded || !regionLookup || munKeys.length === 0) {

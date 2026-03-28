@@ -60,13 +60,16 @@ export function inferEndedCategoryFromHebrewTitle(title: string): EndedCategory 
   return undefined;
 }
 
-/** `now` ∈ [timestamp, expiresAt]. */
+/** `now` ∈ [timestamp, expiresAt]. אם `expiresAt` חסר/לא תקין — משתמשים ב־TTL לפי קטגוריה (כמו ציר הזמן). */
 export function isAlertEventInActiveWindow(e: AlertEvent, nowMs: number): boolean {
   const t = Date.parse(e.timestamp);
   if (Number.isNaN(t)) return false;
-  const exp = Date.parse(e.expiresAt ?? '');
-  if (Number.isNaN(exp)) return false;
-  return nowMs >= t && nowMs <= exp;
+  let endMs = Date.parse(e.expiresAt ?? '');
+  if (Number.isNaN(endMs)) {
+    const ttl = ALERT_CATEGORY_TTL_MS[e.category];
+    endMs = t + (Number.isFinite(ttl) ? ttl : 0);
+  }
+  return nowMs >= t && nowMs <= endMs;
 }
 
 /**
@@ -75,8 +78,8 @@ export function isAlertEventInActiveWindow(e: AlertEvent, nowMs: number): boolea
  */
 export const ALERT_LIST_HISTORY_RETENTION_MS = SESSION_ALERT_HISTORY_MS;
 
-/** פאנל ימני: התראות ש־`timestamp` שלהן בחלון הזה (מעורבבות רקטות/מקדים/סיום); הסליידר משתמש ב־{@link isAlertEventInListHistoryRetention}. */
-export const ALERT_RIGHT_PANEL_LIST_MAX_AGE_MS = 30 * MIN_MS;
+/** פאנל ימני + יישור מפה ב"עכשיו": התראות ב־`timestamp` בטווח הזה. */
+export const ALERT_RIGHT_PANEL_LIST_MAX_AGE_MS = 5 * MIN_MS;
 
 export function isAlertEventInRightPanelListWindow(e: AlertEvent, nowMs: number): boolean {
   const t = Date.parse(e.timestamp);
