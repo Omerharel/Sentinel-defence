@@ -5,6 +5,8 @@ import { getRegionIdForCity } from '@/lib/alert-geo';
 
 
 const PIKUD_CATEGORY_EARLY_WARNING = 7;
+/** ב־CSV של [dleshem/israel-alerts-data](https://github.com/dleshem/israel-alerts-data) מקדים מקודד כ־14 עם כותרת "בדקות הקרובות…". */
+const DLESHEM_CSV_EARLY_WARNING_CATEGORY = 14;
 const PIKUD_CATEGORY_EVENT_ENDED = 13;
 
 const EARLY_WARNING_TITLE = 'התרעה מקדימה';
@@ -36,6 +38,7 @@ const HISTORY_CATEGORY_CODE_MAP: Record<number, AlertCategory> = {
   1: 'rockets',
   2: 'hostile aircraft',
   [PIKUD_CATEGORY_EARLY_WARNING]: 'early warning',
+  [DLESHEM_CSV_EARLY_WARNING_CATEGORY]: 'early warning',
   [PIKUD_CATEGORY_EVENT_ENDED]: 'incident ended',
   3: 'earthquake',
   4: 'tsunami',
@@ -141,11 +144,16 @@ export function isHistoryRowIncidentEnded(row: AlertHistoryRow): boolean {
   return t === ENDED_TITLE || t.includes('הסתיים');
 }
 
-/** התרעה מקדימה: קוד 7 או כותרת סטנדרטית (כש־`category` חסר). */
+/** התרעה מקדימה: קוד 7 / 14 (CSV dleshem) או כותרות סטנדרטיות. */
 export function isHistoryRowEarlyWarning(row: AlertHistoryRow): boolean {
-  if (row.category !== undefined && Number(row.category) === PIKUD_CATEGORY_EARLY_WARNING) return true;
+  if (row.category !== undefined) {
+    const c = Number(row.category);
+    if (c === PIKUD_CATEGORY_EARLY_WARNING || c === DLESHEM_CSV_EARLY_WARNING_CATEGORY) return true;
+  }
   const t = (row.title ?? '').trim();
-  return t === EARLY_WARNING_TITLE || t.includes('התרעה מקדימה');
+  if (t === EARLY_WARNING_TITLE || t.includes('התרעה מקדימה')) return true;
+  if (t === 'בדקות הקרובות צפויות להתקבל התרעות באזורך') return true;
+  return false;
 }
 
 export function normalizeAlertHistoryPayload(

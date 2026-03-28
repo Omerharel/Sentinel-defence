@@ -19,50 +19,12 @@ export async function GET(request: Request) {
   const scanCap = clampInt(Number(url.searchParams.get('scanCap')), 500, 20000, 2500);
 
   try {
-    const { rows, history, live, usedTzevaFallback, usedOrefPublicHistorySupplement } =
+    const { rows, history, live, usedOrefPublicHistorySupplement } =
       await fetchOrefMapProxyAsAlertRows();
     const body = normalizeAlertHistoryPayload(rows, {
       maxEvents,
       scanCap,
     });
-
-    // #region agent log
-    {
-      const rowCat: Record<string, number> = {};
-      for (const row of rows) {
-        const k = String(row.category ?? 'missing');
-        rowCat[k] = (rowCat[k] ?? 0) + 1;
-      }
-      const eventCat: Record<string, number> = {};
-      for (const e of body.events) {
-        eventCat[e.category] = (eventCat[e.category] ?? 0) + 1;
-      }
-      void fetch('http://127.0.0.1:7812/ingest/694a707e-c89a-4075-b2a9-e8688dd5a0e9', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'a2558b' },
-        body: JSON.stringify({
-          sessionId: 'a2558b',
-          runId: 'post-fix',
-          hypothesisId: 'H1-H2-H4',
-          location: 'app/api/alerts/route.ts:GET',
-          message: 'server row vs event categories',
-          data: {
-            rowCat,
-            eventCat,
-            rowsLen: rows.length,
-            eventsLen: body.events.length,
-            histOk: history.ok,
-            histStatus: history.status,
-            liveOk: live.ok,
-            liveStatus: live.status,
-            usedTzevaFallback: Boolean(usedTzevaFallback),
-            usedOrefPublicHistorySupplement: Boolean(usedOrefPublicHistorySupplement),
-          },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {});
-    }
-    // #endregion
 
     const upstreamDead = !history.ok && !live.ok;
     if (rows.length === 0 && upstreamDead) {
@@ -71,7 +33,7 @@ export async function GET(request: Request) {
           ...body,
           error: {
             message: `לא ניתן למשוך נתונים מ־oref-map (history HTTP ${history.status}, live HTTP ${live.status}).`,
-            hint: 'oref-map חוסם לעיתים IP של Vercel. האפליקציה מנסה גיבוי מ־Tzeva; אם גם הוא נכשל — פרוס את alerts-proxy עם מסלולי /api/history ו־/api/alerts ל־oref והגדר OREF_MAP_PROXY_BASE_URL לכתובת הפרוקסי.',
+            hint: 'oref-map חוסם לעיתים IP של Vercel. האפליקציה ממזגת גם סוף ה־CSV מ־dleshem/israel-alerts-data (כמו hatraot), מנסה גיבוי Tzeva, ומשלימה history מ־oref-map.org. אם עדיין ריק — פרוס alerts-proxy והגדר OREF_MAP_PROXY_BASE_URL.',
           },
         },
         {

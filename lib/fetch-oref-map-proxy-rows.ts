@@ -1,4 +1,5 @@
 import type { AlertHistoryRow } from '@/lib/alert-normalize';
+import { fetchDleshemCsvSupplementRows } from '@/lib/fetch-dleshem-alerts-csv';
 import { fetchTzevaAlertsHistoryAsRows } from '@/lib/tzeva-alerts-history-rows';
 
 /**
@@ -265,7 +266,7 @@ export async function fetchOrefMapProxyAsAlertRows(): Promise<OrefMapProxyFetchR
   if (!r.history.ok && !r.live.ok && r.rows.length === 0) {
     const tzevaRows = await fetchTzevaAlertsHistoryAsRows(REQUEST_TIMEOUT_MS);
     if (tzevaRows.length > 0) {
-      return {
+      r = {
         rows: tzevaRows,
         history: { ok: true, status: 200 },
         live: { ok: true, status: 200 },
@@ -273,5 +274,13 @@ export async function fetchOrefMapProxyAsAlertRows(): Promise<OrefMapProxyFetchR
       };
     }
   }
+
+  if (process.env.SENTINEL_DISABLE_DLESHEM_CSV !== '1') {
+    const dleshem = await fetchDleshemCsvSupplementRows(Math.min(6000, REQUEST_TIMEOUT_MS + 2000));
+    if (dleshem.length > 0) {
+      r = { ...r, rows: mergeRowsDedupe(r.rows, dleshem) };
+    }
+  }
+
   return r;
 }
