@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getOrefMapProxyBaseUrl } from '@/lib/fetch-oref-map-proxy-rows';
+import { fetchOrefUpstreamText, getOrefMapProxyBaseUrl } from '@/lib/fetch-oref-map-proxy-rows';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -20,26 +20,21 @@ export async function GET(request: Request) {
   const upstream = `${base}/api/day-history?date=${encodeURIComponent(date)}`;
 
   try {
-    const res = await fetch(upstream, {
-      method: 'GET',
-      cache: 'no-store',
-      headers: { Accept: 'application/json' },
-    });
+    const { ok, text, status } = await fetchOrefUpstreamText(upstream);
 
-    if (res.status === 404) {
+    if (status === 404) {
       return NextResponse.json([], {
         headers: { 'Cache-Control': 'no-store' },
       });
     }
 
-    if (!res.ok) {
+    if (!ok) {
       return NextResponse.json(
-        { error: `Upstream day-history HTTP ${res.status}` },
+        { error: `Upstream day-history HTTP ${status}` },
         { status: 502 },
       );
     }
 
-    const text = await res.text();
     let data: unknown;
     try {
       data = JSON.parse(text) as unknown;

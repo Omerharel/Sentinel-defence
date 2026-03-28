@@ -1,8 +1,14 @@
 import type { AlertHistoryRow } from '@/lib/alert-normalize';
 
-const REQUEST_TIMEOUT_MS = 6500;
+/** שרתים קרים / Vercel — 6.5s עלול לבטל לפני ש־oref-map מגיב. */
+const REQUEST_TIMEOUT_MS = 20_000;
 
 const DEFAULT_OREF_MAP_BASE = 'https://oref-map.org';
+
+const OREF_UPSTREAM_HEADERS: HeadersInit = {
+  Accept: 'application/json, text/plain, */*',
+  'User-Agent': 'Sentinel-Defence/1.0 (+https://oref-map.org feed)',
+};
 
 function isRecord(x: unknown): x is Record<string, unknown> {
   return typeof x === 'object' && x !== null;
@@ -109,7 +115,24 @@ function orefLivePayloadToRows(parsed: unknown): AlertHistoryRow[] {
   return out;
 }
 
-async function fetchText(url: string): Promise<{ ok: boolean; text: string; status: number }> {
+/**
+ * בסיס ל־`/api/history` ו־`/api/alerts`. ברירת מחדל: oref-map.org; ניתן לדרוס ב־`OREF_MAP_PROXY_BASE_URL`.
+ * ב־Vercel מתעלמים מ־`localhost` בטעות (העתקת .env) — השרת לא יכול להגיע ללוקאלוהוסט שלך.
+ */
+export function getOrefMapProxyBaseUrl(): string {
+  const u = process.env.OREF_MAP_PROXY_BASE_URL?.trim();
+  if (!u || u.length === 0) return DEFAULT_OREF_MAP_BASE;
+  const cleaned = u.replace(/\/$/, '');
+  if (process.env.VERCEL === '1' && /localhost|127\.0\.0\.1/i.test(cleaned)) {
+    return DEFAULT_OREF_MAP_BASE;
+  }
+  return cleaned;
+}
+
+/** GET ל־oref-map (או פרוקסי) — timeout + User-Agent (חלק מה־WAF דורשים). */
+export async function fetchOrefUpstreamText(
+  url: string,
+): Promise<{ ok: boolean; text: string; status: number }> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
@@ -118,21 +141,13 @@ async function fetchText(url: string): Promise<{ ok: boolean; text: string; stat
       cache: 'no-store',
       redirect: 'follow',
       signal: controller.signal,
-      headers: {
-        Accept: 'application/json, text/plain, */*',
-      },
+      headers: OREF_UPSTREAM_HEADERS,
     });
     const text = (await response.text()).replace(/^\uFEFF/, '').trim();
     return { ok: response.ok, text, status: response.status };
   } finally {
     clearTimeout(timeoutId);
   }
-}
-
-/** בסיס ל־`/api/history` ו־`/api/alerts`. ברירת מחדל: oref-map.org; ניתן לדרוס ב־`OREF_MAP_PROXY_BASE_URL`. */
-export function getOrefMapProxyBaseUrl(): string {
-  const u = process.env.OREF_MAP_PROXY_BASE_URL?.trim();
-  return u && u.length > 0 ? u.replace(/\/$/, '') : DEFAULT_OREF_MAP_BASE;
 }
 
 /**
@@ -142,8 +157,8 @@ export function getOrefMapProxyBaseUrl(): string {
 export async function fetchOrefMapProxyAsAlertRows(): Promise<AlertHistoryRow[]> {
   const base = getOrefMapProxyBaseUrl();
   const [hist, live] = await Promise.all([
-    fetchText(`${base}/api/history`),
-    fetchText(`${base}/api/alerts`),
+    fetchOrefUpstreamText(`${base}/api/history`),
+    fetchOrefUpstreamText(`${base}/api/alerts`),
   ]);
 
   const rows: AlertHistoryRow[] = [];

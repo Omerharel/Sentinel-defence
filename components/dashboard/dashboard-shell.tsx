@@ -161,7 +161,18 @@ export function DashboardShell() {
         );
         setHistoryEvents((prev) => mergePollIntoAlertHistory(apiSorted, prev, MAX_ALERT_HISTORY));
 
-        setError(null);
+        const payloadErr =
+          !Array.isArray(data) && data && typeof data === 'object' && 'error' in data
+            ? (data as AlertsResponse & { error?: { message?: string; hint?: string } }).error
+            : undefined;
+        if (normalized.events.length === 0 && payloadErr?.message) {
+          setError(
+            [payloadErr.message, payloadErr.hint].filter((s): s is string => Boolean(s)).join(' — '),
+          );
+        } else {
+          setError(null);
+        }
+
         hasHydratedOnceRef.current = true;
 
         const shouldPlayEndedSound = newEndedCount > 0;
