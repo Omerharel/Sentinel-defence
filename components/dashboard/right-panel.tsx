@@ -246,7 +246,9 @@ export function RightPanel({
             event.category === 'incident ended' ? 'ml-0.9' : ''
           }`}
         >
-          <span className="text-sm font-medium text-[#FFFFFF]">
+          <span
+            className={`font-medium text-[#FFFFFF] ${mobileSheet ? 'text-xs' : 'text-sm'}`}
+          >
             {formatDashboardTime(event.timestamp)}
           </span>
           <CitiesLines
@@ -285,7 +287,11 @@ export function RightPanel({
         ) : (
           <>
             <div className="border-b border-border bg-background px-0 py-1.5">
-              <p className="text-sm font-medium text-white text-left">Recent Alerts</p>
+              <p
+                className={`font-medium text-white text-left ${mobileSheet ? 'text-xs' : 'text-sm'}`}
+              >
+                Recent Alerts
+              </p>
             </div>
             {SECTION_ORDER.map((category) => {
               const eventsInCategory = groupedByCategory.get(category) ?? [];
@@ -294,9 +300,9 @@ export function RightPanel({
               return (
                 <div key={`section-${category}`}>
                   <p
-                    className={`text-sm text-muted-foreground px-0 py-1.5 ${
-                      category === 'incident ended' ? 'mt-1 ml-1' : ''
-                    }`}
+                    className={`text-muted-foreground px-0 py-1.5 ${
+                      mobileSheet ? 'text-xs' : 'text-sm'
+                    } ${category === 'incident ended' ? 'mt-1 ml-1' : ''}`}
                   >
                     {CATEGORY_LABEL_EN[category]}
                   </p>

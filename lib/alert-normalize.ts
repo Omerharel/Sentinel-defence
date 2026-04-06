@@ -20,12 +20,6 @@ const MIN_MS = 60 * 1000;
 /** TTL למקדים / סיום אירוע (חלון קצר לעומת רקטות) — ל־`expiresAt` ומפה/ציר. */
 export const EARLY_WARNING_AND_ENDED_TTL_MS = 5 * MIN_MS;
 
-/**
- * חלון ארוך יותר ל"האירוע הסתיים" **ברשימה** (פאנל ימני) — אחרת TTL של 5 דקות גורם לפספס סיומים
- * בזמן אמת (פול כל 4 שניות, עיכוב רשת, טאב ברקע).
- */
-const INCIDENT_ENDED_RIGHT_PANEL_TTL_MS = 30 * MIN_MS;
-
 /** TTL לפי קטגוריה ל־`expiresAt` / חלון פעיל (מצב רגיל). */
 export const ALERT_CATEGORY_TTL_MS: Record<AlertCategory, number> = {
   rockets: 2 * MIN_MS,
@@ -88,15 +82,9 @@ export function isAlertEventInActiveWindow(e: AlertEvent, nowMs: number): boolea
 export const ALERT_LIST_HISTORY_RETENTION_MS = SESSION_ALERT_HISTORY_MS;
 
 /**
- * פאנל ימני + יישור מפה ליד "עכשיו": אירועים בחלון הפעיל.
- * ל־`incident ended` משתמשים בחלון ארוך יותר מ־`expiresAt` כדי שסיום אירוע יופיע ברשימה מספיק זמן.
+ * פאנל ימני + יישור מפה ליד "עכשיו": אותו חלון פעיל כמו `expiresAt` / TTL (למשל סיום אירוע ~5 דק׳).
  */
 export function isAlertEventInRightPanelListWindow(e: AlertEvent, nowMs: number): boolean {
-  if (e.category === 'incident ended') {
-    const t = Date.parse(e.timestamp);
-    if (Number.isNaN(t)) return false;
-    return nowMs >= t && nowMs <= t + INCIDENT_ENDED_RIGHT_PANEL_TTL_MS;
-  }
   return isAlertEventInActiveWindow(e, nowMs);
 }
 

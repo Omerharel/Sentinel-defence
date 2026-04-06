@@ -122,12 +122,12 @@ export function MobileAlertSummary({
               onClick={() => onSelectCategory(category)}
               aria-pressed={isSelected}
               style={{ opacity: chipOpacity }}
-              className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1.5 text-xs font-medium backdrop-blur-md transition-[opacity,color] duration-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/40 ${
+              className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1.5 backdrop-blur-md transition-[opacity,color] duration-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/40 ${
                 isSelected ? selectedClasses : baseIdle
               }`}
             >
               <ChipIcon category={category} />
-              <span>{chipLabel(category, count)}</span>
+              <span className="text-xs font-medium">{chipLabel(category, count)}</span>
             </button>
           );
         })}
