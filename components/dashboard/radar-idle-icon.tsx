@@ -25,13 +25,16 @@ const DEFAULT_BLIP2_Y = OUT_SE.y;
 const DEFAULT_BLIP3_X = IN_TOP.x;
 const DEFAULT_BLIP3_Y = IN_TOP.y;
 const BLIP_R = 2.55;
-const BLIP_OPACITY_MS = 850;
-const BLIP_OPACITY_EASE = 'cubic-bezier(0.42, 0, 0.58, 1)';
+/** כמה מהר הנקודות הלבנות נעלמות אחרי שהסנסור עובר (מילישניות) — נמוך = כיבוי מהיר יותר */
+const BLIP_OPACITY_MS = 100;
+/** fade-in / fade-out לנקודות — Material-like */
+const BLIP_OPACITY_EASE = 'cubic-bezier(0.4, 0, 0.2, 1)';
 const BLIP_HYST_PAD = 8;
 const RING_STROKE_W = 2;
 const SW_A = 105;
 const SW_B = 172;
-const ROT_MS = 3500;
+/** משך סיבוב מלא של ה־sweep (מילישניות) — ערך גבוה = סיבוב איטי יותר */
+const ROT_MS = 10_000;
 
 function blipThetaDeg(blipX: number, blipY: number): number {
   return ((Math.atan2(blipY - C, blipX - C) * 180) / Math.PI + 360) % 360;
@@ -98,16 +101,24 @@ export function RadarIdleIcon({
 
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
       sweep.setAttribute('transform', 'rotate(0)');
-      if (b1) b1.style.cssText = 'opacity:1';
-      if (b2) b2.style.cssText = 'opacity:1';
-      if (b3) b3.style.cssText = 'opacity:1';
+      if (b1) {
+        b1.style.transition = 'none';
+        b1.style.opacity = '1';
+      }
+      if (b2) {
+        b2.style.transition = 'none';
+        b2.style.opacity = '1';
+      }
+      if (b3) {
+        b3.style.transition = 'none';
+        b3.style.opacity = '1';
+      }
       return;
     }
 
-    const fade = `opacity:0;transition:opacity ${BLIP_OPACITY_MS}ms ${BLIP_OPACITY_EASE}`;
-    if (b1) b1.style.cssText = fade;
-    if (b2) b2.style.cssText = fade;
-    if (b3) b3.style.cssText = fade;
+    if (b1) b1.style.opacity = '0';
+    if (b2) b2.style.opacity = '0';
+    if (b3) b3.style.opacity = '0';
     const t0 = performance.now();
     let raf = 0;
     let was1 = false;
@@ -152,6 +163,15 @@ export function RadarIdleIcon({
       aria-hidden
     >
       <defs>
+        <style>{`
+          .radar-idle-blip-${gid} {
+            transition: opacity ${BLIP_OPACITY_MS}ms ${BLIP_OPACITY_EASE};
+            will-change: opacity;
+          }
+          @media (prefers-reduced-motion: reduce) {
+            .radar-idle-blip-${gid} { transition: none; }
+          }
+        `}</style>
         <linearGradient
           id={`radar-sweep-${gid}`}
           gradientUnits="objectBoundingBox"
@@ -187,13 +207,25 @@ export function RadarIdleIcon({
         stroke="#7a7a7a"
         strokeWidth={RING_STROKE_W}
       />
-      <g ref={blipRef} transform={`translate(${blipX} ${blipY})`}>
+      <g
+        ref={blipRef}
+        className={`radar-idle-blip-${gid}`}
+        transform={`translate(${blipX} ${blipY})`}
+      >
         <circle r={BLIP_R} fill="#fff" />
       </g>
-      <g ref={blip2Ref} transform={`translate(${blip2X} ${blip2Y})`}>
+      <g
+        ref={blip2Ref}
+        className={`radar-idle-blip-${gid}`}
+        transform={`translate(${blip2X} ${blip2Y})`}
+      >
         <circle r={BLIP_R} fill="#fff" />
       </g>
-      <g ref={blip3Ref} transform={`translate(${blip3X} ${blip3Y})`}>
+      <g
+        ref={blip3Ref}
+        className={`radar-idle-blip-${gid}`}
+        transform={`translate(${blip3X} ${blip3Y})`}
+      >
         <circle r={BLIP_R} fill="#fff" />
       </g>
     </svg>
