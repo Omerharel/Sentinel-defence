@@ -20,6 +20,15 @@ const ALERT_SOUND_COOLDOWN_MS = 30 * 1000;
 /** מקסימום אירועים ייחודיים בהיסטוריית הרשימה במפגש (לפי id). */
 const MAX_ALERT_HISTORY = 2000;
 
+/**
+ * מזהה יציב לצליל — לא תלוי ב־`id` מהשרת (שכולל אינדקס `i` שמשתנה כשסדר השורות בפיד משתנה).
+ */
+function stableSoundFingerprint(e: AlertEvent): string {
+  const t = Date.parse(e.timestamp);
+  const sec = Number.isNaN(t) ? 0 : Math.floor(t / 1000);
+  return `${e.city}|${sec}|${e.category}|${e.endedCategory ?? ''}`;
+}
+
 export function DashboardShell() {
   const [alerts, setAlerts] = useState<AlertsResponse | null>(null);
   /** התראות שראינו במפגש — הרשימה נשארת גם כשהפיד הנוכחי התרוקן. */
@@ -41,6 +50,8 @@ export function DashboardShell() {
   }, []);
 
   const seenIdsRef = useRef<Set<string>>(new Set());
+  /** טביעות שכבר שמענו — נפרד מ־id כדי לא לנגן צליל כשהפיד רק מחדש מזהים. */
+  const soundFingerprintsSeenRef = useRef<Set<string>>(new Set());
   const hasHydratedOnceRef = useRef(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const endedAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -127,19 +138,25 @@ export function DashboardShell() {
 
         let newEndedCount = 0;
         let newRocketCount = 0;
+        const isInitialPoll = !hasHydratedOnceRef.current;
         for (const e of normalized.events) {
           if (!seenIdsRef.current.has(e.id)) {
             seenIdsRef.current.add(e.id);
-            if (hasHydratedOnceRef.current) {
-              if (e.category === 'incident ended') {
-                newEndedCount += 1;
-              }
-              if (e.category === 'rockets') {
-                newRocketCount += 1;
-              }
+          }
+          const fp = stableSoundFingerprint(e);
+          if (isInitialPoll) {
+            soundFingerprintsSeenRef.current.add(fp);
+          } else if (!soundFingerprintsSeenRef.current.has(fp)) {
+            soundFingerprintsSeenRef.current.add(fp);
+            if (e.category === 'incident ended') {
+              newEndedCount += 1;
+            }
+            if (e.category === 'rockets') {
+              newRocketCount += 1;
             }
           }
         }
+        hasHydratedOnceRef.current = true;
 
         setAlerts(() => {
           const byId = new Map<string, AlertsResponse['events'][number]>();
@@ -176,8 +193,6 @@ export function DashboardShell() {
         } else {
           setError(null);
         }
-
-        hasHydratedOnceRef.current = true;
 
         const shouldPlayEndedSound = newEndedCount > 0;
         const shouldPlayRocketSound = !shouldPlayEndedSound && newRocketCount > 0;
