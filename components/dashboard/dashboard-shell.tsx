@@ -364,6 +364,16 @@ export function DashboardShell() {
     });
   }, [historyEvents, rightPanelTimeTick, fadeListTick]);
 
+  /** סנכרון מפה ↔ רשימה: אירועים ב־fade-out עדיין מקבלים פוליגון בזמן "עכשיו". */
+  const fadingMapEventIds = useMemo(() => {
+    const now = Date.now();
+    const out: string[] = [];
+    for (const [id, start] of fadeOutStartedAtRef.current.entries()) {
+      if (now - start < MAP_POLYGON_FADE_MS) out.push(id);
+    }
+    return out;
+  }, [historyEvents, fadeListTick, rightPanelTimeTick]);
+
   const mapPanelEventPool = useMemo(() => {
     const now = Date.now();
     const events = historyEvents.filter((e) => isAlertEventInListHistoryRetention(e, now));
@@ -415,6 +425,7 @@ export function DashboardShell() {
             <div className="relative z-0 min-h-0 flex-1">
               <MapPanel
                 alerts={mapPanelEventPool}
+                fadingEventIds={fadingMapEventIds}
                 focusCityRequest={mapFocusCityRequest}
                 mobileTimelineHostEl={mobileTimelineHostEl}
               />

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import type { AlertEvent } from '@/lib/alert-types';
-import { cityNameToEnglish, normalizeMunicipalityLabel } from '@/lib/city-name-en';
+import { cityNameToEnglish } from '@/lib/city-name-en';
 import {
   isAlertEventInActiveWindow,
   isAlertEventInRightPanelListWindow,
@@ -23,6 +23,7 @@ import {
   mergeDayHistoryWithSessionPool,
   normalizeOrefDayHistoryToEvents,
 } from '@/lib/oref-day-history';
+import { getFallbackLngLatForCity } from '@/lib/alert-geo';
 import { loadLocationsPolygonsJson, resolvePhoLabelToMunKey } from '@/lib/mun-resolve';
 import { MapTimelineStrip } from '@/components/dashboard/map-timeline-strip';
 import { MAP_POLYGON_FADE_MS } from '@/lib/map-polygon-fade-ms';
@@ -37,8 +38,9 @@ function getLgSnapshot() {
   return window.matchMedia('(min-width: 1024px)').matches;
 }
 
+/** SSR: אין matchMedia — מניחים מובייל כדי לא לסטות מ־הידרציה בלקוח (אותו התנהגות בכל סביבה). */
 function getLgServerSnapshot() {
-  return true;
+  return false;
 }
 
 function useMediaQueryLg() {
@@ -56,24 +58,22 @@ function isAlertShownOnMapAtPlayhead(
   e: AlertEvent,
   playheadMs: number,
   liveNowMs: number,
+  /** מזהים שעדיין ב־fade-out בפאנל — חייבים להופיע גם במפה (אחרת רואים התראה בלי פוליגון). */
+  fadingEventIds: readonly string[] | undefined,
 ): boolean {
   if (isAlertEventInActiveWindow(e, playheadMs)) return true;
   if (Math.abs(playheadMs - liveNowMs) <= LIVE_PLAYHEAD_EPSILON_MS) {
-    return isAlertEventInRightPanelListWindow(e, liveNowMs);
+    if (isAlertEventInRightPanelListWindow(e, liveNowMs)) return true;
+    if (fadingEventIds?.includes(e.id)) return true;
   }
   return false;
-}
-
-/** Feed labels that never map to a single settlement polygon (no hex fallback for these). */
-function isExpectedNonPolygonCity(city: string): boolean {
-  const c = normalizeMunicipalityLabel(city);
-  if (c === 'כל הארץ') return true;
-  return /^יישוב\s*\(\d+\)\s*$/u.test(c);
 }
 
 interface MapPanelProps {
   /** מאגר אירועים להיסטוריה ולציר זמן (שמירת מפגש); המפה מסננת לפי נקודת הזמן בפלייהד */
   alerts: AlertEvent[];
+  /** מזהי אירועים ב־fade-out כמו בפאנל הימני — סנכרון תצוגת פוליגונים */
+  fadingEventIds?: readonly string[];
   /** בקשת התמקדות מלחיצה על תגית עיר בפאנל — `nonce` משתנה בכל לחיצה */
   focusCityRequest?: MapFocusCityRequest | null;
   /** מובייל: יעד DOM ל־portal של ציר הזמן (מ־dashboard-shell) */
@@ -153,6 +153,21 @@ function closeRing(ring: Ring): Ring {
   return ring;
 }
 
+/** כשאין התאמה ל־locations_polygons.json — ריבוע קטן סביב קואורדינטה קבועה לפי שם (לא אקראי בין רינדורים). */
+const FALLBACK_ALERT_POLY_EPS_DEG = 0.03;
+
+function polygonGeometryFromFallbackCity(city: string): { type: 'Polygon'; coordinates: Ring[] } {
+  const [lng, lat] = getFallbackLngLatForCity(city);
+  const h = FALLBACK_ALERT_POLY_EPS_DEG / 2;
+  const ring: Ring = closeRing([
+    [lng - h, lat - h],
+    [lng + h, lat - h],
+    [lng + h, lat + h],
+    [lng - h, lat + h],
+  ]);
+  return { type: 'Polygon', coordinates: [ring] };
+}
+
 function toPolygonGeometry(v: unknown): { type: 'Polygon'; coordinates: Ring[] } | null {
   if (!Array.isArray(v) || v.length === 0) return null;
   const first = v[0] as unknown;
@@ -194,6 +209,7 @@ export type MapFocusCityRequest = { city: string; nonce: number };
 
 export function MapPanel({
   alerts,
+  fadingEventIds = [],
   focusCityRequest = null,
   mobileTimelineHostEl = null,
 }: MapPanelProps) {
@@ -307,7 +323,7 @@ export function MapPanel({
         setRegionLookup(lookup);
         setMunKeys(keys);
       })
-      .catch((e) => console.warn('[MapPanel] locations_polygons.json load failed', e));
+      .catch(() => undefined);
     return () => {
       cancelled = true;
     };
@@ -338,7 +354,7 @@ export function MapPanel({
     const playhead = span > 0 ? Math.round(tMin + r * span) : tMax;
     const clampedPlayhead = Math.min(tMax, Math.max(tMin, playhead));
     const atPlayhead = merged.filter((e) =>
-      isAlertShownOnMapAtPlayhead(e, clampedPlayhead, now),
+      isAlertShownOnMapAtPlayhead(e, clampedPlayhead, now, fadingEventIds),
     );
 
     return {
@@ -349,7 +365,7 @@ export function MapPanel({
       playheadMs: clampedPlayhead,
       alertsAtPlayhead: atPlayhead,
     };
-  }, [alerts, timelineClock, timelineEffectiveRatio, dayHistoryEvents]);
+  }, [alerts, fadingEventIds, timelineClock, timelineEffectiveRatio, dayHistoryEvents]);
 
   const { polygonGeoJson } = useMemo(() => {
     if (!regionLookup) {
@@ -380,10 +396,20 @@ export function MapPanel({
         ];
       }
 
-      if (!isExpectedNonPolygonCity(alert.city)) {
-        console.warn('[MapPanel] No locations_polygons.json match for:', alert.city, '→', munKey);
-      }
-      return [];
+      return [
+        {
+          type: 'Feature' as const,
+          id: alert.id,
+          properties: {
+            city: alert.city,
+            category: alert.category,
+            source: alert.source,
+            timestamp: alert.timestamp,
+            _approximatePolygon: true,
+          },
+          geometry: polygonGeometryFromFallbackCity(alert.city),
+        },
+      ];
     });
 
     return {

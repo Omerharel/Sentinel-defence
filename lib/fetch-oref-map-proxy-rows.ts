@@ -121,7 +121,7 @@ function orefLivePayloadToRows(parsed: unknown): AlertHistoryRow[] {
 
 /**
  * בסיס ל־`/api/history` ו־`/api/alerts`. ברירת מחדל: oref-map.org; ניתן לדרוס ב־`OREF_MAP_PROXY_BASE_URL`.
- * אותה לוגיקה בכל סביבה — בפריסה אל תגדירו כאן localhost (השרת המרוחק לא יגיע לפרוקסי המקומי שלכם).
+ * אותה לוגיקה בכל סביבה; ב־Vercel השרת חייב לקרוא ל־URL נגיש מהרשת (לא כתובת שרת פיתוח פנימית).
  */
 export function getOrefMapProxyBaseUrl(): string {
   const u = process.env.OREF_MAP_PROXY_BASE_URL?.trim();

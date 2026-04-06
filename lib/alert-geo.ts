@@ -12,6 +12,10 @@ function hashString(input: string) {
 }
 
 /** Approximate map point when no polygon exists in `locations_polygons.json`. */
+export function getFallbackLngLatForCity(city: string): LngLat {
+  return fallbackCoordinate(city);
+}
+
 function fallbackCoordinate(city: string): LngLat {
   const hash = hashString(city);
   const lng = 34.2 + (hash % 1400) / 1000;
