@@ -41,6 +41,8 @@ interface RightPanelProps {
     endedCategory?: AlertEvent['endedCategory'];
     source: AlertEventSource;
     cities: string[];
+    /** סנכרון עם fade הפוליגון במפה (אותו משך). */
+    fadeOpacity?: number;
   }[];
   isLoading: boolean;
   error: string | null;
@@ -193,12 +195,14 @@ export function RightPanel({
   ) => {
     const shouldCenterIcon = event.cities.length >= 4;
 
+    const rowOpacity = event.fadeOpacity ?? 1;
     return (
     <div
       key={event.id}
-      className={`w-full min-w-0 ${
+      className={`w-full min-w-0 transition-opacity duration-100 ${
         showDivider ? 'border-b border-border' : ''
       }`}
+      style={{ opacity: rowOpacity }}
     >
       <div className="flex items-start gap-3 py-2">
         {event.category === 'rockets' ? (

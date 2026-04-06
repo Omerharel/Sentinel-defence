@@ -25,6 +25,7 @@ import {
 } from '@/lib/oref-day-history';
 import { loadLocationsPolygonsJson, resolvePhoLabelToMunKey } from '@/lib/mun-resolve';
 import { MapTimelineStrip } from '@/components/dashboard/map-timeline-strip';
+import { MAP_POLYGON_FADE_MS } from '@/lib/map-polygon-fade-ms';
 
 function subscribeLgMedia(callback: () => void) {
   const mq = window.matchMedia('(min-width: 1024px)');
@@ -403,7 +404,7 @@ export function MapPanel({
     }
 
     // Fade-in/out by keeping removed polygons briefly with decreasing opacity.
-    const FADE_MS = 450;
+    const FADE_MS = MAP_POLYGON_FADE_MS;
     const now = performance.now();
 
     const prevFeatures: any[] = Array.isArray(displayPolygonGeoJson?.features)

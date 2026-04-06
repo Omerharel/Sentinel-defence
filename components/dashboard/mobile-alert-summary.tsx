@@ -19,6 +19,7 @@ type Grouped = {
   endedCategory?: AlertEvent['endedCategory'];
   source: AlertEventSource;
   cities: string[];
+  fadeOpacity?: number;
 };
 
 function chipLabel(category: AlertCategory, count: number): string {
@@ -100,6 +101,12 @@ export function MobileAlertSummary({
     <div className="flex w-full max-w-[100vw] justify-center overflow-x-auto px-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       <div className="flex w-max min-w-0 gap-2 py-0.5">
         {chips.map(({ category, count }) => {
+          let chipOpacity = 1;
+          for (const g of groupedAlerts) {
+            if (g.category === category) {
+              chipOpacity = Math.min(chipOpacity, g.fadeOpacity ?? 1);
+            }
+          }
           const isEnded = category === 'incident ended';
           const isSelected = selectedCategory === category;
           const baseIdle = isEnded
@@ -114,7 +121,8 @@ export function MobileAlertSummary({
               type="button"
               onClick={() => onSelectCategory(category)}
               aria-pressed={isSelected}
-              className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1.5 text-xs font-medium backdrop-blur-md transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/40 ${
+              style={{ opacity: chipOpacity }}
+              className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1.5 text-xs font-medium backdrop-blur-md transition-[opacity,color] duration-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/40 ${
                 isSelected ? selectedClasses : baseIdle
               }`}
             >

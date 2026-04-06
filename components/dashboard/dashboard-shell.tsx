@@ -12,6 +12,7 @@ import {
   isAlertEventInRightPanelListWindow,
 } from '@/lib/alert-normalize';
 import { getAlertListMergeMinuteKey } from '@/lib/dashboard-time';
+import { MAP_POLYGON_FADE_MS } from '@/lib/map-polygon-fade-ms';
 
 const POLLING_INTERVAL_MS = 4000;
 const ALERT_SOUND_SRC = '/bell.mp3';
@@ -59,6 +60,16 @@ export function DashboardShell() {
   const isAudioUnlockedRef = useRef(false);
   const isEndedAudioUnlockedRef = useRef(false);
   const lastSoundPlayedAtRef = useRef(0);
+
+  /** סנכרון fade עם פוליגונים במפה — אירוע שיצא מחלון פעיל נשאר ברשימה עם opacity יורדת. */
+  const prevActiveEventIdsRef = useRef<Set<string>>(new Set());
+  const fadeOutStartedAtRef = useRef<Map<string, number>>(new Map());
+  const [fadeListTick, setFadeListTick] = useState(0);
+
+  useEffect(() => {
+    const id = window.setInterval(() => setFadeListTick((n) => n + 1), 100);
+    return () => clearInterval(id);
+  }, []);
 
   useEffect(() => {
     if (hasUserInteractedRef.current) return;
@@ -255,7 +266,42 @@ export function DashboardShell() {
 
   const groupedAlerts = useMemo(() => {
     const now = Date.now();
-    const events = historyEvents.filter((e) => isAlertEventInRightPanelListWindow(e, now));
+
+    const activeIds = new Set<string>();
+    for (const e of historyEvents) {
+      if (isAlertEventInRightPanelListWindow(e, now)) activeIds.add(e.id);
+    }
+
+    for (const [id, start] of [...fadeOutStartedAtRef.current.entries()]) {
+      if (now - start >= MAP_POLYGON_FADE_MS) {
+        fadeOutStartedAtRef.current.delete(id);
+      }
+    }
+
+    const prev = prevActiveEventIdsRef.current;
+    for (const id of prev) {
+      if (!activeIds.has(id) && !fadeOutStartedAtRef.current.has(id)) {
+        fadeOutStartedAtRef.current.set(id, now);
+      }
+    }
+    for (const id of activeIds) {
+      fadeOutStartedAtRef.current.delete(id);
+    }
+    prevActiveEventIdsRef.current = new Set(activeIds);
+
+    const rowFadeOpacity = (e: AlertEvent): number => {
+      if (isAlertEventInRightPanelListWindow(e, now)) return 1;
+      const t0 = fadeOutStartedAtRef.current.get(e.id);
+      if (t0 == null) return 0;
+      const k = (now - t0) / MAP_POLYGON_FADE_MS;
+      if (k >= 1) return 0;
+      return 1 - k;
+    };
+
+    const events = historyEvents.filter(
+      (e) =>
+        isAlertEventInRightPanelListWindow(e, now) || fadeOutStartedAtRef.current.has(e.id),
+    );
 
     /** לכל יישוב רק האירוע האחרון בזמן — כך "סיום אירוע" מחליף רקטה/מקדים לאותו יישוב (רק אירועים בחלון פעיל). */
     const sortedByTime = [...events].sort(
@@ -276,6 +322,7 @@ export function DashboardShell() {
         endedCategory?: AlertEvent['endedCategory'];
         source: AlertEventSource;
         cities: string[];
+        fadeOpacity: number;
       }
     >();
 
@@ -284,6 +331,7 @@ export function DashboardShell() {
       const groupKey = `${minuteKey}|${e.category}|${e.endedCategory ?? ''}`;
       const existing = groups.get(groupKey);
       const t = Date.parse(e.timestamp);
+      const op = rowFadeOpacity(e);
       if (!existing) {
         groups.set(groupKey, {
           id: groupKey,
@@ -292,11 +340,13 @@ export function DashboardShell() {
           endedCategory: e.endedCategory,
           source: e.source,
           cities: [e.city],
+          fadeOpacity: op,
         });
       } else {
         if (!existing.cities.includes(e.city)) {
           existing.cities.push(e.city);
         }
+        existing.fadeOpacity = Math.min(existing.fadeOpacity, op);
         const pt = Date.parse(existing.timestamp);
         if (!Number.isNaN(t) && (Number.isNaN(pt) || t > pt)) {
           existing.timestamp = e.timestamp;
@@ -310,7 +360,7 @@ export function DashboardShell() {
       if (Number.isNaN(ta) || Number.isNaN(tb)) return 0;
       return tb - ta;
     });
-  }, [historyEvents, rightPanelTimeTick]);
+  }, [historyEvents, rightPanelTimeTick, fadeListTick]);
 
   const mapPanelEventPool = useMemo(() => {
     const now = Date.now();

@@ -108,7 +108,7 @@ export function MapTimelineStrip({
 
   const rootClass = inline
     ? 'pointer-events-none z-[2] w-full max-w-[min(42vw,280px)] shrink-0'
-    : 'pointer-events-none absolute right-4 z-[2] w-[min(40vw,600px)] bottom-4';
+    : 'pointer-events-none absolute right-4 z-[2] w-[min(32vw,420px)] bottom-4';
 
   return (
     <div className={rootClass} dir="ltr">
