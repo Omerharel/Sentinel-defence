@@ -17,8 +17,8 @@ function segmentBarColor(kind: TimelineSegment['kind']): string {
   return '#6b7280';
 }
 
-/** מקדים / סיום אירוע — מנפחים משך בפלקס בלבד (לא רוחב פיקסלים) */
-const TIMELINE_EARLY_ENDED_VISUAL_MIN_MS = 6 * 60 * 1000;
+/** מקדים / סיום אירוע — מינימום משקל בפלקס בלבד (לא פיקסלים); נמוך = פס צר יותר */
+const TIMELINE_EARLY_ENDED_VISUAL_MIN_MS = 90 * 1000;
 
 interface MapTimelineStripProps {
   segments: TimelineSegment[];
