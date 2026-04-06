@@ -26,7 +26,7 @@ const DEFAULT_BLIP3_X = IN_TOP.x;
 const DEFAULT_BLIP3_Y = IN_TOP.y;
 const BLIP_R = 2.55;
 /** משך fade לנקודות — ארוך יותר = פחות "קאטי" (מילישניות) */
-const BLIP_OPACITY_MS = 380;
+const BLIP_OPACITY_MS = 480;
 /** fade-in / fade-out לנקודות */
 const BLIP_OPACITY_EASE = 'ease-in-out';
 const BLIP_HYST_PAD = 8;
