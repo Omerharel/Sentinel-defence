@@ -32,6 +32,8 @@ interface MapTimelineStripProps {
   isScrubbing?: boolean;
   onPreviewRatioChange: (ratio: number | null) => void;
   onRatioCommit: (ratio: number) => void;
+  /** מובייל: בשורה ליד Last Update — בלי absolute */
+  inline?: boolean;
 }
 
 export function MapTimelineStrip({
@@ -44,6 +46,7 @@ export function MapTimelineStrip({
   isScrubbing = false,
   onPreviewRatioChange,
   onRatioCommit,
+  inline = false,
 }: MapTimelineStripProps) {
   const total = rangeEndMs - rangeStartMs;
   const trackRef = useRef<HTMLDivElement>(null);
@@ -103,12 +106,12 @@ export function MapTimelineStrip({
     ? ''
     : 'transition-[left] duration-100 ease-out motion-reduce:transition-none';
 
+  const rootClass = inline
+    ? 'pointer-events-none z-[2] w-full max-w-[min(42vw,280px)] shrink-0'
+    : 'pointer-events-none absolute right-4 z-[2] w-[min(40vw,600px)] bottom-4';
+
   return (
-    <div
-      className="pointer-events-none z-[2] w-[min(40vw,600px)]"
-      style={{ position: 'absolute', right: 16, bottom: 16 }}
-      dir="ltr"
-    >
+    <div className={rootClass} dir="ltr">
       <div className="pointer-events-auto rounded-full bg-black/55 px-3 py-0.5 shadow-lg backdrop-blur-md">
         <div className="relative">
           {tooltipVisible ? (

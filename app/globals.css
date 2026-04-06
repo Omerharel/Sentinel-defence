@@ -7,6 +7,7 @@
 :root {
   --background: oklch(0.1742 0.0017 17.3); 
   --foreground: oklch(0.94 0 0);
+  --card: oklch(0.1742 0.0017 17.3);
   --card-foreground: oklch(0.94 0 0);
   --popover: oklch(0.18 0.01 240);
   --popover-foreground: oklch(0.94 0 0);
@@ -46,6 +47,7 @@
 .dark {
   --background: oklch(0.1742 0.0017 17.3);
   --foreground: oklch(0.94 0 0);
+  --card: oklch(0.1742 0.0017 17.3);
   --card-foreground: oklch(0.94 0 0);
   --popover: oklch(0.18 0.01 240);
   --popover-foreground: oklch(0.94 0 0);
@@ -240,3 +242,4 @@
   box-shadow: none !important;
   opacity: 0 !important;
 }
+

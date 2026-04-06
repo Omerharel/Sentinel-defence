@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { LastUpdate } from '@/components/dashboard/last-update';
 import { MapPanel, type MapFocusCityRequest } from '@/components/dashboard/map-panel';
+import { MobileAlertSummary } from '@/components/dashboard/mobile-alert-summary';
 import { RightPanel } from '@/components/dashboard/right-panel';
 import type { AlertCategory, AlertEvent, AlertEventSource, AlertsResponse } from '@/lib/alert-types';
 import { mergePollIntoAlertHistory } from '@/lib/alert-history-merge';
@@ -28,6 +29,9 @@ export function DashboardShell() {
   const [mapFocusCityRequest, setMapFocusCityRequest] = useState<MapFocusCityRequest | null>(null);
   /** מרענן סינון חלון הפאנל הימני בלי להמתין ל־poll */
   const [rightPanelTimeTick, setRightPanelTimeTick] = useState(0);
+  /** מובייל: פילטר לפי קטגוריה ב־pills — null = כל ההתראות */
+  const [mobileAlertFilter, setMobileAlertFilter] = useState<AlertCategory | null>(null);
+  const [mobileTimelineHostEl, setMobileTimelineHostEl] = useState<HTMLDivElement | null>(null);
 
   const handleCityChipClick = useCallback((cityHebrew: string) => {
     setMapFocusCityRequest((prev) => ({
@@ -298,25 +302,80 @@ export function DashboardShell() {
     [alerts],
   );
 
+  const mobileSheetGroupedAlerts = useMemo(() => {
+    if (mobileAlertFilter === null) return groupedAlerts;
+    return groupedAlerts.filter((g) => g.category === mobileAlertFilter);
+  }, [groupedAlerts, mobileAlertFilter]);
+
+  const handleMobileCategoryClick = useCallback((cat: AlertCategory) => {
+    setMobileAlertFilter((prev) => (prev === cat ? null : cat));
+  }, []);
+
+  useEffect(() => {
+    if (groupedAlerts.length === 0) setMobileAlertFilter(null);
+  }, [groupedAlerts.length]);
+
+  const rightPanelProps = {
+    groupedAlerts,
+    isLoading,
+    error,
+    onCityChipClick: handleCityChipClick,
+  } as const;
+
   return (
-    <div className="h-screen bg-background flex flex-col font-sans">
-      <main className="flex-1 p-4 md:p-6 flex flex-col gap-3 overflow-hidden">
-        <div className="flex w-full flex-wrap items-center gap-3">
+    <div className="h-[100dvh] min-h-0 bg-background flex flex-col font-sans">
+      <main className="flex-1 flex min-h-0 flex-col gap-0 overflow-hidden lg:gap-3 lg:p-6">
+        <div className="hidden w-full flex-wrap items-center gap-3 lg:flex">
           <LastUpdate fetchedAt={summary.fetchedAt} isLoading={isLoading} />
         </div>
 
-        <div className="flex-1 flex flex-col lg:flex-row gap-4 overflow-hidden">
-          <div className="flex-1 rounded-sm overflow-hidden min-h-[500px] lg:min-h-0 bg-card">
-            <MapPanel alerts={mapPanelEventPool} focusCityRequest={mapFocusCityRequest} />
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden lg:flex-row lg:gap-4">
+          <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-card lg:rounded-sm">
+            <div className="pointer-events-none absolute inset-0 z-[1] bg-black/20 lg:hidden" aria-hidden />
+            <div className="relative z-0 min-h-0 flex-1">
+              <MapPanel
+                alerts={mapPanelEventPool}
+                focusCityRequest={mapFocusCityRequest}
+                mobileTimelineHostEl={mobileTimelineHostEl}
+              />
+            </div>
+
+            <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex flex-col items-center gap-2 px-3 pt-[max(0.5rem,env(safe-area-inset-top))] pb-10 lg:hidden">
+              <div className="pointer-events-auto flex w-full max-w-md flex-col items-center gap-2">
+                <MobileAlertSummary
+                  groupedAlerts={groupedAlerts}
+                  selectedCategory={mobileAlertFilter}
+                  onSelectCategory={handleMobileCategoryClick}
+                />
+              </div>
+            </div>
+
+            <div className="pointer-events-none absolute inset-0 z-10 flex flex-col justify-end gap-3 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:hidden">
+              <div className="flex w-full shrink-0 flex-row items-center justify-between gap-2">
+                <div className="pointer-events-auto shrink-0">
+                  <div className="rounded-full bg-black/45 px-4 py-2 backdrop-blur-md">
+                    <LastUpdate fetchedAt={summary.fetchedAt} isLoading={isLoading} />
+                  </div>
+                </div>
+                <div
+                  ref={setMobileTimelineHostEl}
+                  className="pointer-events-auto flex min-h-[2rem] min-w-0 flex-1 items-center justify-end"
+                />
+              </div>
+              <div className="pointer-events-auto min-h-0 max-h-[min(52vh,calc(100dvh-10rem))] w-full overflow-y-auto overflow-x-hidden rounded-2xl border border-border/90 bg-background shadow-[0_-8px_40px_rgba(0,0,0,0.45)]">
+                <RightPanel
+                  groupedAlerts={mobileSheetGroupedAlerts}
+                  isLoading={isLoading}
+                  error={error}
+                  onCityChipClick={handleCityChipClick}
+                  mobileSheet
+                />
+              </div>
+            </div>
           </div>
 
-          <aside className="w-full sm:w-[380px] rounded bg-card p-0 overflow-hidden flex flex-col">
-            <RightPanel
-              groupedAlerts={groupedAlerts}
-              isLoading={isLoading}
-              error={error}
-              onCityChipClick={handleCityChipClick}
-            />
+          <aside className="hidden w-[380px] shrink-0 flex-col overflow-hidden rounded bg-card lg:flex">
+            <RightPanel {...rightPanelProps} />
           </aside>
         </div>
       </main>

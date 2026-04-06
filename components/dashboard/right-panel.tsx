@@ -4,13 +4,14 @@ import Image from 'next/image';
 import { CheckCircle2, TriangleAlert } from 'lucide-react';
 
 import type { AlertCategory, AlertEvent, AlertEventSource } from '@/lib/alert-types';
+import { RadarIdleIcon } from '@/components/dashboard/radar-idle-icon';
 import { formatDashboardTime } from '@/lib/dashboard-time';
 import { cityNameToEnglish } from '@/lib/city-name-en';
 
 const CATEGORY_LABEL_EN: Record<AlertCategory, string> = {
   rockets: 'Missiles',
   'hostile aircraft': 'Hostile aircraft intrusion',
-  'early warning': 'In a few minutes, alerts are expected in your area',
+  'early warning': 'Early warning',
   'incident ended': 'The event has ended',
   earthquake: 'Earthquake',
   tsunami: 'Tsunami',
@@ -32,16 +33,6 @@ const SECTION_ORDER: AlertCategory[] = [
   'terror',
 ];
 
-function getEventTitle(event: { category: AlertCategory; endedCategory?: AlertCategory }) {
-  if (
-    event.category === 'incident ended' &&
-    (event.endedCategory === 'rockets' || event.endedCategory === 'hostile aircraft')
-  ) {
-    return `Incident ended - ${event.endedCategory}`;
-  }
-  return CATEGORY_LABEL_EN[event.category];
-}
-
 interface RightPanelProps {
   groupedAlerts: {
     id: string;
@@ -55,31 +46,78 @@ interface RightPanelProps {
   error: string | null;
   /** לחיצה על תגית עיר (שם בעברית מהפיד) — התמקדות במפה + tooltip */
   onCityChipClick?: (cityHebrew: string) => void;
+  /** מובייל: גובה לפי תוכן + גלילה ב-wrapper החיצוני */
+  mobileSheet?: boolean;
 }
+
+const MAX_CITY_CHIPS = 2;
 
 function CitiesLines({
   cities,
   onCityClick,
+  compactRow,
 }: {
   cities: string[];
   onCityClick?: (cityHebrew: string) => void;
+  /** מובייל: שורה אחת, 2 שמות + תגית +N */
+  compactRow?: boolean;
 }) {
   const en = cities.map(cityNameToEnglish);
+  const interactive = Boolean(onCityClick);
+
+  if (!compactRow) {
+    return (
+      <div className="mb-1 flex flex-wrap gap-1.5">
+        {en.map((cityEn, i) => {
+          const he = cities[i];
+          if (!he) return null;
+          const inner = (
+            <span className="text-xs font-medium leading-none text-[#808080]">{cityEn}</span>
+          );
+          if (!interactive) {
+            return (
+              <div
+                key={`${he}-${i}`}
+                className="max-w-full inline-flex min-h-[1.5rem] items-center justify-center rounded-full bg-[#282828] px-2.5 py-0"
+              >
+                {inner}
+              </div>
+            );
+          }
+          return (
+            <button
+              key={`${he}-${i}`}
+              type="button"
+              onClick={() => onCityClick?.(he)}
+              className="max-w-full inline-flex min-h-[1.5rem] cursor-pointer items-center justify-center rounded-full bg-[#282828] px-2.5 py-0 transition-colors hover:bg-[#383838]"
+              aria-label={`התמקד במפה: ${he}`}
+            >
+              {inner}
+            </button>
+          );
+        })}
+      </div>
+    );
+  }
+
+  const count = cities.length;
+  const showCount = Math.min(count, MAX_CITY_CHIPS);
+  const extra = count > MAX_CITY_CHIPS ? count - MAX_CITY_CHIPS : 0;
+
+  const chipClass =
+    'max-w-[min(100%,11rem)] shrink min-w-0 inline-flex min-h-[1.5rem] items-center justify-center rounded-full bg-[#282828] px-2.5 py-0';
+  const nameClass = 'truncate text-xs font-medium leading-none text-[#808080]';
+
   return (
-    <div className="mb-1 flex flex-wrap gap-1.5">
-      {en.map((cityEn, i) => {
+    <div className="mb-1 flex min-w-0 flex-nowrap items-center gap-1.5 overflow-hidden">
+      {Array.from({ length: showCount }, (_, i) => {
         const he = cities[i];
-        if (!he) return null;
-        const interactive = Boolean(onCityClick);
-        const inner = (
-          <span className="text-xs font-medium leading-none text-[#808080]">{cityEn}</span>
-        );
+        const cityEn = en[i];
+        if (!he || cityEn === undefined) return null;
+        const inner = <span className={nameClass}>{cityEn}</span>;
         if (!interactive) {
           return (
-            <div
-              key={`${he}-${i}`}
-              className="max-w-full inline-flex min-h-[1.5rem] items-center justify-center rounded-full bg-[#282828] px-2.5 py-0"
-            >
+            <div key={`${he}-${i}`} className={chipClass}>
               {inner}
             </div>
           );
@@ -89,13 +127,21 @@ function CitiesLines({
             key={`${he}-${i}`}
             type="button"
             onClick={() => onCityClick?.(he)}
-            className="max-w-full inline-flex min-h-[1.5rem] cursor-pointer items-center justify-center rounded-full bg-[#282828] px-2.5 py-0 transition-colors hover:bg-[#383838]"
+            className={`${chipClass} cursor-pointer transition-colors hover:bg-[#383838]`}
             aria-label={`התמקד במפה: ${he}`}
           >
             {inner}
           </button>
         );
       })}
+      {extra > 0 ? (
+        <div
+          className="inline-flex min-h-[1.5rem] shrink-0 items-center justify-center rounded-full bg-[#282828] px-2.5 py-0"
+          aria-label={`ועוד ${extra} יישובים`}
+        >
+          <span className="text-xs font-medium leading-none text-[#808080]">+{extra}</span>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -105,10 +151,15 @@ export function RightPanel({
   isLoading,
   error,
   onCityChipClick,
+  mobileSheet = false,
 }: RightPanelProps) {
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-full px-6 py-4">
+      <div
+        className={`flex items-center justify-center bg-background px-4 py-4 lg:px-6 ${
+          mobileSheet ? 'min-h-[6rem] py-8' : 'h-full'
+        }`}
+      >
         <p className="text-sm text-muted-foreground animate-pulse">Loading alerts…</p>
       </div>
     );
@@ -116,7 +167,11 @@ export function RightPanel({
 
   if (error) {
     return (
-      <div className="flex items-center justify-center h-full px-6 py-4">
+      <div
+        className={`flex items-center justify-center bg-background px-4 py-4 lg:px-6 ${
+          mobileSheet ? 'min-h-[6rem] py-8' : 'h-full'
+        }`}
+      >
         <p className="text-sm text-destructive">{error}</p>
       </div>
     );
@@ -145,7 +200,7 @@ export function RightPanel({
         showDivider ? 'border-b border-border' : ''
       }`}
     >
-      <div className="px-0 py-2 flex items-start gap-3">
+      <div className="flex items-start gap-3 py-2">
         {event.category === 'rockets' ? (
           <div className={shouldCenterIcon ? 'shrink-0 self-center' : 'shrink-0'}>
             <Image
@@ -182,42 +237,50 @@ export function RightPanel({
             aria-hidden
           />
         )}
-        <div className="flex flex-col gap-2 min-w-0 flex-1">
-          <span
-            className={`text-sm font-medium text-[#FFFFFF] ${
-              event.category === 'incident ended' ? 'ml-0.9' : ''
-            }`}
-          >
-            {getEventTitle(event)}
+        <div
+          className={`flex min-w-0 flex-1 flex-col gap-1.5 ${
+            event.category === 'incident ended' ? 'ml-0.9' : ''
+          }`}
+        >
+          <span className="text-sm font-medium text-[#FFFFFF]">
+            {formatDashboardTime(event.timestamp)}
           </span>
-          <div className={event.category === 'incident ended' ? 'ml-0.9' : ''}>
-            <CitiesLines cities={event.cities} onCityClick={onCityChipClick} />
-          </div>
+          <CitiesLines
+            cities={event.cities}
+            onCityClick={onCityChipClick}
+            compactRow={mobileSheet}
+          />
         </div>
-        <span className="ml-auto text-xs text-muted-foreground shrink-0 pt-0.5">
-          {formatDashboardTime(event.timestamp)}
-        </span>
       </div>
     </div>
     );
   };
 
+  const scrollBody = mobileSheet ? 'overflow-visible' : 'min-h-0 flex-1 overflow-y-auto';
+  const rootSheet = mobileSheet ? 'flex flex-col bg-background' : 'flex flex-col h-full min-h-0 overflow-hidden bg-background';
+
   return (
-    <div className="flex flex-col h-full overflow-hidden">
-      <div className="flex-1 overflow-y-auto w-full min-w-0">
+    <div className={rootSheet}>
+      <div className={`${scrollBody} bg-background w-full min-w-0 px-4 lg:px-0`}>
         {groupedAlerts.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full">
-            <CheckCircle2 className="h-8 w-8 text-white-foreground" />
+          <div
+            className={`flex flex-col items-center justify-center bg-background ${
+              mobileSheet ? 'py-10' : 'h-full'
+            }`}
+          >
+            <span className="inline-flex shrink-0" role="img" aria-label="No active alerts">
+              <RadarIdleIcon size={56} />
+            </span>
             <p className="text-md font-medium text-white-foreground text-center mt-2">
             Quiet for Now
             </p>
-            <p className="text-sm text-muted-foreground text-center px-6">
+            <p className="text-sm text-muted-foreground text-center">
             All clear. No active alerts at this time. 
             </p>
           </div>
         ) : (
           <>
-            <div className="px-0 py-1.5 border-b border-border">
+            <div className="border-b border-border bg-background px-0 py-1.5">
               <p className="text-sm font-medium text-white text-left">Recent Alerts</p>
             </div>
             {SECTION_ORDER.map((category) => {

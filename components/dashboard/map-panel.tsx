@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { createPortal } from 'react-dom';
 import type { AlertEvent } from '@/lib/alert-types';
 import { cityNameToEnglish, normalizeMunicipalityLabel } from '@/lib/city-name-en';
 import {
@@ -24,6 +25,24 @@ import {
 } from '@/lib/oref-day-history';
 import { loadLocationsPolygonsJson, resolvePhoLabelToMunKey } from '@/lib/mun-resolve';
 import { MapTimelineStrip } from '@/components/dashboard/map-timeline-strip';
+
+function subscribeLgMedia(callback: () => void) {
+  const mq = window.matchMedia('(min-width: 1024px)');
+  mq.addEventListener('change', callback);
+  return () => mq.removeEventListener('change', callback);
+}
+
+function getLgSnapshot() {
+  return window.matchMedia('(min-width: 1024px)').matches;
+}
+
+function getLgServerSnapshot() {
+  return true;
+}
+
+function useMediaQueryLg() {
+  return useSyncExternalStore(subscribeLgMedia, getLgSnapshot, getLgServerSnapshot);
+}
 
 const ALERT_POLYGONS_SOURCE_ID = 'alert-polygons';
 const ALERT_FILL_LAYER_ID = 'alert-polygons-fill';
@@ -56,6 +75,8 @@ interface MapPanelProps {
   alerts: AlertEvent[];
   /** בקשת התמקדות מלחיצה על תגית עיר בפאנל — `nonce` משתנה בכל לחיצה */
   focusCityRequest?: MapFocusCityRequest | null;
+  /** מובייל: יעד DOM ל־portal של ציר הזמן (מ־dashboard-shell) */
+  mobileTimelineHostEl?: HTMLDivElement | null;
 }
 
 function isEscalationCategory(c: AlertEvent['category']): boolean {
@@ -173,6 +194,7 @@ export type MapFocusCityRequest = { city: string; nonce: number };
 export function MapPanel({
   alerts,
   focusCityRequest = null,
+  mobileTimelineHostEl = null,
 }: MapPanelProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<any>(null);
@@ -195,6 +217,8 @@ export function MapPanel({
 
   const timelineEffectiveRatio = timelinePreviewRatio ?? timelineRatio;
   const jerusalemViewYmd = jerusalemDateYmd(timelineClock);
+
+  const isLg = useMediaQueryLg();
 
   useEffect(() => {
     const id = window.setInterval(() => setTimelineClock(Date.now()), 2000);
@@ -659,7 +683,7 @@ export function MapPanel({
   }, [focusCityRequest, isLoaded, regionLookup, munKeys]);
 
   return (
-    <div className="relative h-full min-h-[500px] w-full overflow-hidden">
+    <div className="relative h-full min-h-0 w-full overflow-hidden lg:min-h-[500px]">
       <div ref={mapContainer} className="absolute inset-0 h-full w-full" />
       {mapInitError ? (
         <div className="absolute inset-0 z-[3] flex items-center justify-center bg-black/60 px-6">
@@ -668,20 +692,29 @@ export function MapPanel({
           </div>
         </div>
       ) : null}
-      <MapTimelineStrip
-        segments={timelineSegments}
-        earlyWarningBands={timelineEarlyWarningBands}
-        rangeStartMs={timelineRangeStartMs}
-        rangeEndMs={timelineRangeEndMs}
-        ratio={timelineEffectiveRatio}
-        playheadMs={playheadMs}
-        isScrubbing={timelinePreviewRatio !== null}
-        onPreviewRatioChange={setTimelinePreviewRatio}
-        onRatioCommit={(r) => {
-          setTimelineRatio(r);
-          setTimelinePreviewRatio(null);
-        }}
-      />
+      {(() => {
+        const timelineStripProps = {
+          segments: timelineSegments,
+          earlyWarningBands: timelineEarlyWarningBands,
+          rangeStartMs: timelineRangeStartMs,
+          rangeEndMs: timelineRangeEndMs,
+          ratio: timelineEffectiveRatio,
+          playheadMs: playheadMs,
+          isScrubbing: timelinePreviewRatio !== null,
+          onPreviewRatioChange: setTimelinePreviewRatio,
+          onRatioCommit: (r: number) => {
+            setTimelineRatio(r);
+            setTimelinePreviewRatio(null);
+          },
+        };
+        if (isLg) {
+          return <MapTimelineStrip {...timelineStripProps} />;
+        }
+        if (mobileTimelineHostEl) {
+          return createPortal(<MapTimelineStrip {...timelineStripProps} inline />, mobileTimelineHostEl);
+        }
+        return null;
+      })()}
     </div>
   );
 }
