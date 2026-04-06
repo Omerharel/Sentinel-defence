@@ -13,9 +13,7 @@ let polygonsJsonPromise: Promise<Record<string, unknown> | null> | null = null;
 
 export function loadLocationsPolygonsJson(): Promise<Record<string, unknown> | null> {
   if (!polygonsJsonPromise) {
-    const cache =
-      process.env.NODE_ENV === 'development' ? 'no-store' : 'force-cache';
-    polygonsJsonPromise = fetch(LOCATIONS_POLYGONS_PATH, { cache })
+    polygonsJsonPromise = fetch(LOCATIONS_POLYGONS_PATH, { cache: 'force-cache' })
       .then((r) => (r.ok ? (r.json() as Promise<Record<string, unknown>>) : null))
       .catch(() => null);
   }

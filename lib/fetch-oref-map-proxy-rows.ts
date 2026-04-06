@@ -121,16 +121,12 @@ function orefLivePayloadToRows(parsed: unknown): AlertHistoryRow[] {
 
 /**
  * בסיס ל־`/api/history` ו־`/api/alerts`. ברירת מחדל: oref-map.org; ניתן לדרוס ב־`OREF_MAP_PROXY_BASE_URL`.
- * ב־Vercel מתעלמים מ־`localhost` בטעות (העתקת .env) — השרת לא יכול להגיע ללוקאלוהוסט שלך.
+ * אותה לוגיקה בכל סביבה — בפריסה אל תגדירו כאן localhost (השרת המרוחק לא יגיע לפרוקסי המקומי שלכם).
  */
 export function getOrefMapProxyBaseUrl(): string {
   const u = process.env.OREF_MAP_PROXY_BASE_URL?.trim();
   if (!u || u.length === 0) return DEFAULT_OREF_MAP_BASE;
-  const cleaned = u.replace(/\/$/, '');
-  if (process.env.VERCEL === '1' && /localhost|127\.0\.0\.1/i.test(cleaned)) {
-    return DEFAULT_OREF_MAP_BASE;
-  }
-  return cleaned;
+  return u.replace(/\/$/, '');
 }
 
 /** GET ל־oref-map (או פרוקסי) — timeout + User-Agent (חלק מה־WAF דורשים). */

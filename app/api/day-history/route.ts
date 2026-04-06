@@ -29,9 +29,7 @@ export async function GET(request: Request) {
     }
 
     if (!ok) {
-      if (process.env.NODE_ENV === 'development') {
-        console.warn('[day-history] upstream HTTP', status, upstream.slice(0, 80));
-      }
+      console.warn('[day-history] upstream HTTP', status, upstream.slice(0, 80));
       return NextResponse.json([], {
         headers: {
           'Cache-Control': 'no-store',
@@ -44,9 +42,7 @@ export async function GET(request: Request) {
     try {
       data = JSON.parse(text) as unknown;
     } catch {
-      if (process.env.NODE_ENV === 'development') {
-        console.warn('[day-history] invalid JSON from upstream', upstream.slice(0, 80));
-      }
+      console.warn('[day-history] invalid JSON from upstream', upstream.slice(0, 80));
       return NextResponse.json([], {
         headers: {
           'Cache-Control': 'no-store',
@@ -59,9 +55,7 @@ export async function GET(request: Request) {
       headers: { 'Cache-Control': 'no-store' },
     });
   } catch (e) {
-    if (process.env.NODE_ENV === 'development') {
-      console.warn('[day-history] fetch error', e);
-    }
+    console.warn('[day-history] fetch error', e);
     return NextResponse.json([], {
       headers: {
         'Cache-Control': 'no-store',
