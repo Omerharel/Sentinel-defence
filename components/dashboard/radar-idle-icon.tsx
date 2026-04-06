@@ -116,9 +116,13 @@ export function RadarIdleIcon({
       return;
     }
 
-    if (b1) b1.style.opacity = '0';
-    if (b2) b2.style.opacity = '0';
-    if (b3) b3.style.opacity = '0';
+    const blipTransition = `opacity ${BLIP_OPACITY_MS}ms ${BLIP_OPACITY_EASE}`;
+    for (const el of [b1, b2, b3]) {
+      if (!el) continue;
+      el.style.setProperty('transition', blipTransition);
+      el.style.setProperty('will-change', 'opacity');
+      el.style.setProperty('opacity', '0');
+    }
     const t0 = performance.now();
     let raf = 0;
     let was1 = false;
@@ -132,19 +136,19 @@ export function RadarIdleIcon({
         const on1 = blipHit(R, th1, was1 ? BLIP_HYST_PAD : 0);
         was1 = on1;
         const o1 = on1 ? '1' : '0';
-        if (b1.style.opacity !== o1) b1.style.opacity = o1;
+        if (b1.style.opacity !== o1) b1.style.setProperty('opacity', o1);
       }
       if (b2) {
         const on2 = blipHit(R, th2, was2 ? BLIP_HYST_PAD : 0);
         was2 = on2;
         const o2 = on2 ? '1' : '0';
-        if (b2.style.opacity !== o2) b2.style.opacity = o2;
+        if (b2.style.opacity !== o2) b2.style.setProperty('opacity', o2);
       }
       if (b3) {
         const on3 = blipHit(R, th3, was3 ? BLIP_HYST_PAD : 0);
         was3 = on3;
         const o3 = on3 ? '1' : '0';
-        if (b3.style.opacity !== o3) b3.style.opacity = o3;
+        if (b3.style.opacity !== o3) b3.style.setProperty('opacity', o3);
       }
       raf = requestAnimationFrame(loop);
     };
@@ -163,15 +167,6 @@ export function RadarIdleIcon({
       aria-hidden
     >
       <defs>
-        <style>{`
-          .radar-idle-blip-${gid} {
-            transition: opacity ${BLIP_OPACITY_MS}ms ${BLIP_OPACITY_EASE};
-            will-change: opacity;
-          }
-          @media (prefers-reduced-motion: reduce) {
-            .radar-idle-blip-${gid} { transition: none; }
-          }
-        `}</style>
         <linearGradient
           id={`radar-sweep-${gid}`}
           gradientUnits="objectBoundingBox"
@@ -207,25 +202,13 @@ export function RadarIdleIcon({
         stroke="#7a7a7a"
         strokeWidth={RING_STROKE_W}
       />
-      <g
-        ref={blipRef}
-        className={`radar-idle-blip-${gid}`}
-        transform={`translate(${blipX} ${blipY})`}
-      >
+      <g ref={blipRef} transform={`translate(${blipX} ${blipY})`}>
         <circle r={BLIP_R} fill="#fff" />
       </g>
-      <g
-        ref={blip2Ref}
-        className={`radar-idle-blip-${gid}`}
-        transform={`translate(${blip2X} ${blip2Y})`}
-      >
+      <g ref={blip2Ref} transform={`translate(${blip2X} ${blip2Y})`}>
         <circle r={BLIP_R} fill="#fff" />
       </g>
-      <g
-        ref={blip3Ref}
-        className={`radar-idle-blip-${gid}`}
-        transform={`translate(${blip3X} ${blip3Y})`}
-      >
+      <g ref={blip3Ref} transform={`translate(${blip3X} ${blip3Y})`}>
         <circle r={BLIP_R} fill="#fff" />
       </g>
     </svg>
