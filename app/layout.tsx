@@ -1,9 +1,16 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import 'mapbox-gl/dist/mapbox-gl.css'
 
 const inter = Inter({ subsets: ["latin"] });
+
+/** נדרש ל־env(safe-area-inset-*) ולפריסה קצה־לקצה ב־iPhone (כולל Dynamic Island). */
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+}
 
 export const metadata: Metadata = {
   title: 'Sentinel Defense',

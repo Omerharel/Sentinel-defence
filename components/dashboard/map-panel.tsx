@@ -596,6 +596,11 @@ export function MapPanel({
         }
 
         setIsLoaded(true);
+        // iOS Safari: גודל המכילה מתייצב אחרי paint / סרגל כתובות — בלי resize הקנבס יכול להישאר ריק או חתוך.
+        queueMicrotask(() => {
+          instance.resize();
+          requestAnimationFrame(() => instance.resize());
+        });
       });
     };
 
@@ -621,6 +626,38 @@ export function MapPanel({
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (!map.current || !isLoaded || !mapContainer.current) return;
+    const m = map.current;
+    const el = mapContainer.current;
+    const bump = () => {
+      try {
+        m.resize();
+      } catch {
+        // ignore
+      }
+    };
+    bump();
+    const ro = new ResizeObserver(() => bump());
+    ro.observe(el);
+    window.addEventListener('resize', bump);
+    window.addEventListener('orientationchange', bump);
+    const vv = typeof window !== 'undefined' ? window.visualViewport : null;
+    if (vv) {
+      vv.addEventListener('resize', bump);
+      vv.addEventListener('scroll', bump);
+    }
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', bump);
+      window.removeEventListener('orientationchange', bump);
+      if (vv) {
+        vv.removeEventListener('resize', bump);
+        vv.removeEventListener('scroll', bump);
+      }
+    };
+  }, [isLoaded]);
 
   useEffect(() => {
     if (!map.current || !isLoaded) return;
