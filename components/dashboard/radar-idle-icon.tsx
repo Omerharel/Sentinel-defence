@@ -25,16 +25,16 @@ const DEFAULT_BLIP2_Y = OUT_SE.y;
 const DEFAULT_BLIP3_X = IN_TOP.x;
 const DEFAULT_BLIP3_Y = IN_TOP.y;
 const BLIP_R = 2.55;
-/** כמה מהר הנקודות הלבנות נעלמות אחרי שהסנסור עובר (מילישניות) — נמוך = כיבוי מהיר יותר */
-const BLIP_OPACITY_MS = 100;
-/** fade-in / fade-out לנקודות — Material-like */
-const BLIP_OPACITY_EASE = 'cubic-bezier(0.4, 0, 0.2, 1)';
+/** משך fade לנקודות — ארוך יותר = פחות "קאטי" (מילישניות) */
+const BLIP_OPACITY_MS = 380;
+/** fade-in / fade-out לנקודות */
+const BLIP_OPACITY_EASE = 'ease-in-out';
 const BLIP_HYST_PAD = 8;
 const RING_STROKE_W = 2;
 const SW_A = 105;
 const SW_B = 172;
-/** משך סיבוב מלא של ה־sweep (מילישניות) — ערך גבוה = סיבוב איטי יותר */
-const ROT_MS = 10_000;
+
+const ROT_MS = 8000;
 
 function blipThetaDeg(blipX: number, blipY: number): number {
   return ((Math.atan2(blipY - C, blipX - C) * 180) / Math.PI + 360) % 360;
