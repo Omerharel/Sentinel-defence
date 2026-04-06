@@ -5,10 +5,23 @@ import { jerusalemDateYmd } from '@/lib/jerusalem-calendar';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
+export const maxDuration = 25;
+
+const OREF_PUBLIC_BASE = 'https://oref-map.org';
+
+function parseDayHistoryArray(text: string): unknown[] | null {
+  try {
+    const data = JSON.parse(text) as unknown;
+    return Array.isArray(data) ? data : null;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Proxy ל־`/api/day-history` של oref-map — היסטוריית יום מלא לציר זמן (כמו באתר).
  * ללא `?date=` — משתמשים ביום הנוכחי בזמן ירושלים (כמו בלקוח).
+ * אם הבסיס מ־`OREF_MAP_PROXY_BASE_URL` נכשל (403/timeout וכו') — ניסיון שני מ־oref-map.org הציבורי.
  * @see https://github.com/maorcc/oref-map/blob/main/functions/api/day-history.js
  */
 export async function GET(request: Request) {
@@ -23,47 +36,49 @@ export async function GET(request: Request) {
     date = raw;
   }
 
-  const base = getOrefMapProxyBaseUrl();
-  const upstream = `${base}/api/day-history?date=${encodeURIComponent(date)}`;
+  const base = getOrefMapProxyBaseUrl().replace(/\/$/, '');
+  const pathAndQuery = `/api/day-history?date=${encodeURIComponent(date)}`;
+  const primaryUrl = `${base}${pathAndQuery}`;
+  const publicUrl = `${OREF_PUBLIC_BASE}${pathAndQuery}`;
 
   try {
-    const { ok, text, status } = await fetchOrefUpstreamText(upstream);
+    const first = await fetchOrefUpstreamText(primaryUrl);
+    let rows: unknown[] | null = null;
+    let usedPublicFallback = false;
 
-    const dateHeaders = {
+    if (first.ok) {
+      rows = parseDayHistoryArray(first.text);
+    }
+
+    if (rows === null && publicUrl !== primaryUrl) {
+      const second = await fetchOrefUpstreamText(publicUrl);
+      if (second.ok) {
+        const parsed = parseDayHistoryArray(second.text);
+        if (parsed !== null) {
+          rows = parsed;
+          usedPublicFallback = true;
+        }
+      }
+    }
+
+    if (rows === null) {
+      rows = [];
+    }
+
+    const dateHeaders: Record<string, string> = {
       'Cache-Control': 'no-store',
       'X-Day-History-Date': date,
-    } as const;
-
-    if (status === 404) {
-      return NextResponse.json([], {
-        headers: dateHeaders,
-      });
+    };
+    if (!first.ok) {
+      dateHeaders['X-Day-History-Upstream-Primary'] = String(first.status);
+    }
+    if (usedPublicFallback) {
+      dateHeaders['X-Day-History-Public-Fallback'] = '1';
+    } else if (rows.length === 0 && !first.ok) {
+      dateHeaders['X-Day-History-Fallback'] = `upstream-${first.status}`;
     }
 
-    if (!ok) {
-      console.warn('[day-history] upstream HTTP', status, upstream.slice(0, 80));
-      return NextResponse.json([], {
-        headers: {
-          ...dateHeaders,
-          'X-Day-History-Fallback': `upstream-${status}`,
-        },
-      });
-    }
-
-    let data: unknown;
-    try {
-      data = JSON.parse(text) as unknown;
-    } catch {
-      console.warn('[day-history] invalid JSON from upstream', upstream.slice(0, 80));
-      return NextResponse.json([], {
-        headers: {
-          ...dateHeaders,
-          'X-Day-History-Fallback': 'invalid-json',
-        },
-      });
-    }
-
-    return NextResponse.json(Array.isArray(data) ? data : [], {
+    return NextResponse.json(rows, {
       headers: dateHeaders,
     });
   } catch (e) {
