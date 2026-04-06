@@ -2,7 +2,7 @@ import type { AlertCategory, AlertEvent } from '@/lib/alert-types';
 import { ALERT_CATEGORY_TTL_MS } from '@/lib/alert-normalize';
 
 /** רוחב חלון הסליידר על ציר הזמן (אחורה מ־"עכשיו"). */
-export const MAP_TIMELINE_SLIDER_RANGE_MS = 5 * 60 * 60 * 1000;
+export const MAP_TIMELINE_SLIDER_RANGE_MS = 3 * 60 * 60 * 1000;
 
 /** סדר עדיפות כשאין שכבת “מקדים / אסקלציה / סיום” מנצחת */
 const CATEGORY_PRIORITY: AlertCategory[] = [
