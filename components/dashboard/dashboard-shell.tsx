@@ -216,12 +216,25 @@ export function DashboardShell() {
       }
     };
 
-    loadAlerts();
+    void loadAlerts();
     interval = setInterval(loadAlerts, POLLING_INTERVAL_MS);
+
+    /** טאב ברקע: הדפדפן מאט את setInterval (לעיתים דקות) — בפרודקשן זה נראה כ"עיכוב" מול לוקאל עם טאב פעיל. */
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void loadAlerts();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+
+    const onOnline = () => {
+      void loadAlerts();
+    };
+    window.addEventListener('online', onOnline);
 
     return () => {
       isMounted = false;
       if (interval) clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('online', onOnline);
     };
   }, []);
 

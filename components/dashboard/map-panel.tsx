@@ -221,8 +221,17 @@ export function MapPanel({
   const isLg = useMediaQueryLg();
 
   useEffect(() => {
-    const id = window.setInterval(() => setTimelineClock(Date.now()), 2000);
-    return () => window.clearInterval(id);
+    const tick = () => setTimelineClock(Date.now());
+    const id = window.setInterval(tick, 2000);
+    /** טאב ברקע מאט את setInterval — "עכשיו" בציר נשאר מפגר עד חזרה לטאב. */
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') tick();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      window.clearInterval(id);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, []);
 
   useEffect(() => {
@@ -254,9 +263,27 @@ export function MapPanel({
 
     void loadDayHistory();
     const refreshId = window.setInterval(loadDayHistory, 5 * 60_000);
+
+    const bumpClockAndReloadHistory = () => {
+      setTimelineClock(Date.now());
+      void loadDayHistory();
+    };
+
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') bumpClockAndReloadHistory();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+
+    const onOnline = () => {
+      bumpClockAndReloadHistory();
+    };
+    window.addEventListener('online', onOnline);
+
     return () => {
       cancelled = true;
       window.clearInterval(refreshId);
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('online', onOnline);
     };
   }, [jerusalemViewYmd]);
 
