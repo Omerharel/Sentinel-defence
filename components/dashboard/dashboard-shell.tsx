@@ -330,7 +330,11 @@ export function DashboardShell() {
 
     for (const e of perCityLatest) {
       const minuteKey = getAlertListMergeMinuteKey(e.timestamp);
-      const groupKey = `${minuteKey}|${e.category}|${e.endedCategory ?? ''}`;
+      /** `endedCategory` משתנה בין פידים (oref עם כותרת מפורטת מול Tzeva גנרי) — לא לפצל שורות סיום לאותה דקה */
+      const groupKey =
+        e.category === 'incident ended'
+          ? `${minuteKey}|incident ended`
+          : `${minuteKey}|${e.category}|${e.endedCategory ?? ''}`;
       const existing = groups.get(groupKey);
       const t = Date.parse(e.timestamp);
       const op = rowFadeOpacity(e);
@@ -347,6 +351,9 @@ export function DashboardShell() {
       } else {
         if (!existing.cities.includes(e.city)) {
           existing.cities.push(e.city);
+        }
+        if (e.endedCategory != null && existing.endedCategory == null) {
+          existing.endedCategory = e.endedCategory;
         }
         existing.fadeOpacity = Math.min(existing.fadeOpacity, op);
         const pt = Date.parse(existing.timestamp);
