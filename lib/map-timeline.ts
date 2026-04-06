@@ -58,17 +58,10 @@ function eventEndMs(e: AlertEvent): number {
   return t + (Number.isFinite(ttl) ? ttl : 0);
 }
 
-function isActiveAt(e: AlertEvent, tMs: number): boolean {
-  const t = Date.parse(e.timestamp);
-  if (Number.isNaN(t)) return false;
-  const end = eventEndMs(e);
-  if (!Number.isFinite(end) || Number.isNaN(end)) return false;
-  return tMs >= t && tMs <= end;
-}
+type PreparedInterval = { start: number; end: number; e: AlertEvent };
 
-/** מקדים → אסקלציה → סיום → שאר (לפי rank) */
-function dominantKind(events: AlertEvent[], tMs: number): TimelineSegmentKind {
-  const active = events.filter((e) => isActiveAt(e, tMs));
+/** מקדים → אסקלציה → סיום → שאר (לפי rank) — על קבוצה שכבר ידועה כפעילה בנקודת זמן */
+function dominantKindFromActive(active: AlertEvent[]): TimelineSegmentKind {
   if (active.length === 0) return 'quiet';
   if (active.some((e) => e.category === 'early warning')) return 'early warning';
 
@@ -81,6 +74,18 @@ function dominantKind(events: AlertEvent[], tMs: number): TimelineSegmentKind {
   return minRankCategory(active) ?? 'quiet';
 }
 
+function prepareIntervals(events: AlertEvent[], rangeStartMs: number, rangeEndMs: number): PreparedInterval[] {
+  const out: PreparedInterval[] = [];
+  for (const e of events) {
+    const t = Date.parse(e.timestamp);
+    const end = eventEndMs(e);
+    if (Number.isNaN(t) || !Number.isFinite(end) || Number.isNaN(end)) continue;
+    if (end < rangeStartMs || t > rangeEndMs) continue;
+    out.push({ start: t, end, e });
+  }
+  return out;
+}
+
 export function buildTimelineSegments(
   events: AlertEvent[],
   rangeStartMs: number,
@@ -88,17 +93,21 @@ export function buildTimelineSegments(
 ): TimelineSegment[] {
   if (rangeEndMs <= rangeStartMs) return [];
 
+  const intervals = prepareIntervals(events, rangeStartMs, rangeEndMs);
+
   const boundaries = new Set<number>([rangeStartMs, rangeEndMs]);
-  for (const e of events) {
-    const t = Date.parse(e.timestamp);
-    const end = eventEndMs(e);
-    if (!Number.isNaN(t) && t >= rangeStartMs && t <= rangeEndMs) boundaries.add(t);
-    if (Number.isFinite(end) && !Number.isNaN(end) && end >= rangeStartMs && end <= rangeEndMs) {
-      boundaries.add(end);
-    }
+  for (const x of intervals) {
+    if (x.start >= rangeStartMs && x.start <= rangeEndMs) boundaries.add(x.start);
+    if (x.end >= rangeStartMs && x.end <= rangeEndMs) boundaries.add(x.end);
   }
 
   const sorted = [...boundaries].sort((a, b) => a - b);
+  const sortedStarts = [...intervals].sort((a, b) => a.start - b.start);
+  const sortedEnds = [...intervals].sort((a, b) => a.end - b.end);
+
+  const active = new Map<string, AlertEvent>();
+  let si = 0;
+  let ei = 0;
   const out: TimelineSegment[] = [];
 
   for (let i = 0; i < sorted.length - 1; i++) {
@@ -106,7 +115,17 @@ export function buildTimelineSegments(
     const endMs = sorted[i + 1]!;
     if (endMs <= startMs) continue;
     const mid = (startMs + endMs) / 2;
-    const kind = dominantKind(events, mid);
+
+    while (si < sortedStarts.length && sortedStarts[si]!.start <= mid) {
+      const x = sortedStarts[si++]!;
+      active.set(x.e.id, x.e);
+    }
+    while (ei < sortedEnds.length && sortedEnds[ei]!.end < mid) {
+      const x = sortedEnds[ei++]!;
+      active.delete(x.e.id);
+    }
+
+    const kind = dominantKindFromActive(Array.from(active.values()));
     const last = out[out.length - 1];
     if (last?.kind === kind) last.endMs = endMs;
     else out.push({ startMs, endMs, kind });

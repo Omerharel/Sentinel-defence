@@ -8,6 +8,7 @@ import { RightPanel } from '@/components/dashboard/right-panel';
 import type { AlertCategory, AlertEvent, AlertEventSource, AlertsResponse } from '@/lib/alert-types';
 import { mergePollIntoAlertHistory } from '@/lib/alert-history-merge';
 import {
+  isAlertEventInActiveWindow,
   isAlertEventInListHistoryRetention,
   isAlertEventInRightPanelListWindow,
 } from '@/lib/alert-normalize';
@@ -159,7 +160,8 @@ export function DashboardShell() {
             soundFingerprintsSeenRef.current.add(fp);
           } else if (!soundFingerprintsSeenRef.current.has(fp)) {
             soundFingerprintsSeenRef.current.add(fp);
-            if (e.category === 'incident ended') {
+            /** רק "סיום אירוע" שעדיין בחלון הפעיל (TTL) — לא שורות היסטוריה שנכנסות לפול אחרי שרקטה ירדה מהמפה */
+            if (e.category === 'incident ended' && isAlertEventInActiveWindow(e, Date.now())) {
               newEndedCount += 1;
             }
             if (e.category === 'rockets') {
