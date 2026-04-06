@@ -5,7 +5,11 @@
 
 import type { AlertEvent } from './alert-types';
 import { getRegionIdForCity } from './alert-geo';
-import { EARLY_WARNING_AND_ENDED_TTL_MS, inferEndedCategoryFromHebrewTitle } from './alert-normalize';
+import {
+  EARLY_WARNING_AND_ENDED_TTL_MS,
+  INCIDENT_ENDED_ACTIVE_TTL_MS,
+  inferEndedCategoryFromHebrewTitle,
+} from './alert-normalize';
 
 /** `1` — לא לפתוח WebSocket לצבע אדום (גם אם מוגדר URL). */
 export function isTzevaWebSocketDisabled(): boolean {
@@ -209,7 +213,7 @@ export function buildEndedEventsFromTzevaSystemMessage(
   const textBlob = `${data.titleHe ?? ''} ${data.bodyHe ?? ''}`;
   const endedCategory = inferEndedCategoryFromHebrewTitle(textBlob);
 
-  const expiresAt = new Date(timeSec * 1000 + EARLY_WARNING_AND_ENDED_TTL_MS).toISOString();
+  const expiresAt = new Date(timeSec * 1000 + INCIDENT_ENDED_ACTIVE_TTL_MS).toISOString();
 
   const out: AlertEvent[] = [];
   if (cityIds.length === 0) {

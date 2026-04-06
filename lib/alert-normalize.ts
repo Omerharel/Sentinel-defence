@@ -17,15 +17,18 @@ const SESSION_ALERT_HISTORY_MS = 24 * 60 * 60 * 1000;
 const MIN_MS = 60 * 1000;
 
 
-/** TTL למקדים / סיום אירוע (חלון קצר לעומת רקטות) — ל־`expiresAt` ומפה/ציר. */
-export const EARLY_WARNING_AND_ENDED_TTL_MS = 5 * MIN_MS;
+/** TTL למקדים (חלון קצר) — ל־`expiresAt` ומפה/ציר. */
+export const EARLY_WARNING_AND_ENDED_TTL_MS = 2.5 * MIN_MS;
+
+/** חלון פעיל ל"האירוע הסתיים" בלבד — קצר ממקדים. */
+export const INCIDENT_ENDED_ACTIVE_TTL_MS = 2.5 * MIN_MS;
 
 /** TTL לפי קטגוריה ל־`expiresAt` / חלון פעיל (מצב רגיל). */
 export const ALERT_CATEGORY_TTL_MS: Record<AlertCategory, number> = {
   rockets: 2 * MIN_MS,
   'hostile aircraft': 2 * MIN_MS,
   'early warning': EARLY_WARNING_AND_ENDED_TTL_MS,
-  'incident ended': EARLY_WARNING_AND_ENDED_TTL_MS,
+  'incident ended': INCIDENT_ENDED_ACTIVE_TTL_MS,
   earthquake: 5 * MIN_MS,
   tsunami: 5 * MIN_MS,
   hazmat: 4 * MIN_MS,
@@ -82,7 +85,7 @@ export function isAlertEventInActiveWindow(e: AlertEvent, nowMs: number): boolea
 export const ALERT_LIST_HISTORY_RETENTION_MS = SESSION_ALERT_HISTORY_MS;
 
 /**
- * פאנל ימני + יישור מפה ליד "עכשיו": אותו חלון פעיל כמו `expiresAt` / TTL (למשל סיום אירוע ~5 דק׳).
+ * פאנל ימני + יישור מפה ליד "עכשיו": אותו חלון פעיל כמו `expiresAt` / TTL (סיום אירוע ~2.5 דק׳, מקדים ~5 דק׳).
  */
 export function isAlertEventInRightPanelListWindow(e: AlertEvent, nowMs: number): boolean {
   return isAlertEventInActiveWindow(e, nowMs);
