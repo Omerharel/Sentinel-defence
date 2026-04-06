@@ -160,6 +160,8 @@ export type OrefMapProxyFetchResult = {
   rows: AlertHistoryRow[];
   history: OrefUpstreamHttpMeta;
   live: OrefUpstreamHttpMeta;
+  /** true כש־HTTP 200 אבל המערך המפורסר ריק — לעיתים פרוקסי מחזיר היסטוריה ריקה ו־live עם רקטות בלבד (בלי מקדים). */
+  historyParsedEmpty?: boolean;
   /** true כשנלקח מ־Tzeva אחרי כשלון oref — משפיע על תמהיל קטגוריות (איומים מול מקדים/סיום). */
   usedTzevaFallback?: boolean;
   /** true כשהוספנו `/api/history` מ־oref-map.org הציבורי אחרי כשלון history בבסיס הראשי (למשל פרוקסי שמחזיר רק live). */
@@ -209,7 +211,8 @@ function parseHistoryAndLiveResponses(
   hist: Awaited<ReturnType<typeof fetchOrefUpstreamText>>,
   live: Awaited<ReturnType<typeof fetchOrefUpstreamText>>,
 ): OrefMapProxyFetchResult {
-  const rows: AlertHistoryRow[] = hist.ok && hist.text ? parseHistoryTextToRows(hist.text) : [];
+  const historyRows = hist.ok && hist.text ? parseHistoryTextToRows(hist.text) : [];
+  const rows: AlertHistoryRow[] = [...historyRows];
 
   if (live.ok && live.text) {
     try {
@@ -224,6 +227,7 @@ function parseHistoryAndLiveResponses(
     rows,
     history: { ok: hist.ok, status: hist.status },
     live: { ok: live.ok, status: live.status },
+    historyParsedEmpty: hist.ok && historyRows.length === 0,
   };
 }
 
@@ -249,8 +253,12 @@ export async function fetchOrefMapProxyAsAlertRows(): Promise<OrefMapProxyFetchR
   }
 
   // ב־Vercel לעיתים `/api/history` דרך פרוקסי נכשל אבל `/api/alerts` עובד — נשארים רק רקטות/כלי טיס בלי מקדים/סיום.
-  // Tzeva alerts-history כולל רק איומים 0/5 (אין 7/13). השלמה מ־oref-map.org הציבורי משחזרת כותרות מלאות.
-  if (!r.history.ok) {
+  // לעיתים history הוא 200 עם מערך ריק — אותו מצב. השלמה מ־oref-map.org הציבורי (רק כשהבסיס הראשי ≠ הציבורי).
+  const shouldMergePublicHistory =
+    !r.history.ok ||
+    (Boolean(r.historyParsedEmpty) && getOrefMapProxyBaseUrl() !== DEFAULT_OREF_MAP_BASE);
+
+  if (shouldMergePublicHistory) {
     const pub = await fetchOrefUpstreamText(`${DEFAULT_OREF_MAP_BASE}/api/history`);
     const extra = pub.ok && pub.text ? parseHistoryTextToRows(pub.text) : [];
     if (extra.length > 0) {
@@ -258,6 +266,7 @@ export async function fetchOrefMapProxyAsAlertRows(): Promise<OrefMapProxyFetchR
         rows: mergeRowsDedupe(r.rows, extra),
         history: { ok: true, status: pub.status },
         live: r.live,
+        historyParsedEmpty: false,
         usedOrefPublicHistorySupplement: true,
       };
     }

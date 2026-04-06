@@ -5,8 +5,11 @@ import { parseHistoryAlertDateToEpochMs } from '@/lib/alert-normalize';
  * אותו מקור נתונים שמוזכר ב־[hatraot.vercel.app](https://hatraot.vercel.app/) (כיתוב: dleshem/israel-alerts-data).
  * @see https://github.com/dleshem/israel-alerts-data
  */
-const DLESHEM_CSV_URL =
-  'https://raw.githubusercontent.com/dleshem/israel-alerts-data/main/israel-alerts.csv';
+const DLESHEM_CSV_SOURCES = [
+  'https://raw.githubusercontent.com/dleshem/israel-alerts-data/main/israel-alerts.csv',
+  /** לעיתים מחזיר 206 כש־raw.githubusercontent.com מחזיר 200 עם גוף מלא (בלי Range). */
+  'https://cdn.jsdelivr.net/gh/dleshem/israel-alerts-data@main/israel-alerts.csv',
+] as const;
 
 const BROWSER_UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
@@ -107,28 +110,43 @@ export async function fetchDleshemCsvSupplementRows(timeoutMs: number): Promise<
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const res = await fetch(DLESHEM_CSV_URL, {
-      method: 'GET',
-      cache: 'no-store',
-      redirect: 'follow',
-      signal: controller.signal,
-      headers: {
-        Range: `bytes=-${RANGE_TAIL_BYTES}`,
-        'User-Agent': BROWSER_UA,
-        Accept: 'text/plain,*/*',
-      },
-    });
+    let text: string | null = null;
 
-    if (res.status !== 206) {
-      if (res.status !== 200) return [];
-      const len = Number(res.headers.get('content-length'));
-      if (!Number.isFinite(len) || len > RANGE_TAIL_BYTES + 64) {
-        await res.body?.cancel().catch(() => {});
-        return [];
+    for (const url of DLESHEM_CSV_SOURCES) {
+      const res = await fetch(url, {
+        method: 'GET',
+        cache: 'no-store',
+        redirect: 'follow',
+        signal: controller.signal,
+        headers: {
+          Range: `bytes=-${RANGE_TAIL_BYTES}`,
+          'User-Agent': BROWSER_UA,
+          Accept: 'text/plain,*/*',
+        },
+      });
+
+      if (res.status === 206) {
+        text = (await res.text()).replace(/^\uFEFF/, '');
+        break;
       }
+
+      if (res.status !== 200) continue;
+
+      const len = Number(res.headers.get('content-length'));
+      if (!Number.isFinite(len)) {
+        await res.body?.cancel().catch(() => {});
+        continue;
+      }
+      if (len <= RANGE_TAIL_BYTES + 64) {
+        text = (await res.text()).replace(/^\uFEFF/, '');
+        break;
+      }
+
+      await res.body?.cancel().catch(() => {});
     }
 
-    const text = (await res.text()).replace(/^\uFEFF/, '');
+    if (text === null) return [];
+
     const rows = chunkToRows(text, now);
     cache = { fetchedAt: now, rows };
     return rows;
