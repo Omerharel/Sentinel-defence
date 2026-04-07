@@ -1,8 +1,10 @@
 import type { AlertCategory } from '@/lib/alert-types';
 
+
+
 export const MAP_FILL_HEX_BY_CATEGORY: Record<AlertCategory, string> = {
   rockets: '#ef4444',
-  'hostile aircraft': '#ea580c',
+  'hostile aircraft': '#FFA479',
   'early warning': '#facc15',
   'incident ended': '#22c55e',
   earthquake: '#f97316',
@@ -14,7 +16,7 @@ export const MAP_FILL_HEX_BY_CATEGORY: Record<AlertCategory, string> = {
 
 export const MAP_OUTLINE_HEX_BY_CATEGORY: Record<AlertCategory, string> = {
   rockets: '#fca5a5',
-  'hostile aircraft': '#fdba74',
+  'hostile aircraft': '#FFA479',
   'early warning': '#fef08a',
   'incident ended': '#86efac',
   earthquake: '#fdba74',
