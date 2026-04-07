@@ -12,6 +12,7 @@ jobs:
       contents: read
     env:
       CLOUDFRONT_DISTRIBUTION_ID: ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
     steps:
       - name: Checkout repo
@@ -31,6 +32,8 @@ jobs:
           STATIC_EXPORT: 'true'
           NEXT_PUBLIC_MAPBOX_TOKEN: ${{ secrets.NEXT_PUBLIC_MAPBOX_TOKEN }}
         run: |
+          trap 'if [ -d /tmp/sentinel-app-api-routes ]; then mv /tmp/sentinel-app-api-routes app/api; fi' EXIT
+          mv app/api /tmp/sentinel-app-api-routes
           npm run build
           test -f out/index.html
 
