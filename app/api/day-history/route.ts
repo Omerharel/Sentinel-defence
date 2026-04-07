@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { fetchOrefUpstreamText, getOrefMapProxyBaseUrl } from '@/lib/fetch-oref-map-proxy-rows';
 import { jerusalemDateYmd } from '@/lib/jerusalem-calendar';
+import { mergeCors } from '@/lib/api-cors';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -31,7 +32,10 @@ export async function GET(request: Request) {
   if (!raw?.trim()) {
     date = jerusalemDateYmd();
   } else if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
-    return NextResponse.json({ error: 'Query ?date= must be YYYY-MM-DD' }, { status: 400 });
+    return NextResponse.json(
+      { error: 'Query ?date= must be YYYY-MM-DD' },
+      { status: 400, headers: mergeCors(request, {}) },
+    );
   } else {
     date = raw;
   }
@@ -79,16 +83,20 @@ export async function GET(request: Request) {
     }
 
     return NextResponse.json(rows, {
-      headers: dateHeaders,
+      headers: mergeCors(request, dateHeaders),
     });
   } catch (e) {
     console.warn('[day-history] fetch error', e);
     return NextResponse.json([], {
-      headers: {
+      headers: mergeCors(request, {
         'Cache-Control': 'no-store',
         'X-Day-History-Date': date,
         'X-Day-History-Fallback': 'network',
-      },
+      }),
     });
   }
+}
+
+export async function OPTIONS(request: Request) {
+  return new NextResponse(null, { status: 204, headers: mergeCors(request, {}) });
 }

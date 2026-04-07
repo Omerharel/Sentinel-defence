@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { normalizeAlertHistoryPayload } from '@/lib/alert-normalize';
 import { fetchOrefMapProxyAsAlertRows } from '@/lib/fetch-oref-map-proxy-rows';
+import { mergeCors } from '@/lib/api-cors';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -42,14 +43,14 @@ export async function GET(request: Request) {
 
   if (cached && cached.expiresAt > now) {
     return NextResponse.json(cached.body.body, {
-      headers: {
+      headers: mergeCors(request, {
         'Cache-Control': 'no-store, max-age=0, must-revalidate',
         'X-Alerts-Cache': 'HIT',
         ...(cached.body.upstreamDead || !cached.body.history.ok || !cached.body.live.ok
           ? { 'X-Oref-Upstream': `hist=${cached.body.history.status},live=${cached.body.live.status}` }
           : {}),
         ...(cached.body.usedOrefPublicHistorySupplement ? { 'X-Oref-Public-History-Supplement': '1' } : {}),
-      },
+      }),
     });
   }
 
@@ -64,14 +65,14 @@ export async function GET(request: Request) {
 
     if (cached && existingInflight) {
       return NextResponse.json(cached.body.body, {
-        headers: {
+        headers: mergeCors(request, {
           'Cache-Control': 'no-store, max-age=0, must-revalidate',
           'X-Alerts-Cache': 'STALE',
           ...(cached.body.upstreamDead || !cached.body.history.ok || !cached.body.live.ok
             ? { 'X-Oref-Upstream': `hist=${cached.body.history.status},live=${cached.body.live.status}` }
             : {}),
           ...(cached.body.usedOrefPublicHistorySupplement ? { 'X-Oref-Public-History-Supplement': '1' } : {}),
-        },
+        }),
       });
     }
 
@@ -92,36 +93,36 @@ export async function GET(request: Request) {
           },
         },
         {
-          headers: {
+          headers: mergeCors(request, {
             'Cache-Control': 'no-store, max-age=0, must-revalidate',
             'X-Alerts-Cache': cached ? 'MISS-REFRESH' : 'MISS',
             'X-Oref-Upstream': `hist=${history.status},live=${live.status}`,
-          },
+          }),
         },
       );
     }
 
     return NextResponse.json(body, {
-      headers: {
+      headers: mergeCors(request, {
         'Cache-Control': 'no-store, max-age=0, must-revalidate',
         'X-Alerts-Cache': cached ? 'MISS-REFRESH' : 'MISS',
         ...(upstreamDead || !history.ok || !live.ok
           ? { 'X-Oref-Upstream': `hist=${history.status},live=${live.status}` }
           : {}),
         ...(usedOrefPublicHistorySupplement ? { 'X-Oref-Public-History-Supplement': '1' } : {}),
-      },
+      }),
     });
   } catch (error) {
     if (cached) {
       return NextResponse.json(cached.body.body, {
-        headers: {
+        headers: mergeCors(request, {
           'Cache-Control': 'no-store, max-age=0, must-revalidate',
           'X-Alerts-Cache': 'STALE-ON-ERROR',
           ...(cached.body.upstreamDead || !cached.body.history.ok || !cached.body.live.ok
             ? { 'X-Oref-Upstream': `hist=${cached.body.history.status},live=${cached.body.live.status}` }
             : {}),
           ...(cached.body.usedOrefPublicHistorySupplement ? { 'X-Oref-Public-History-Supplement': '1' } : {}),
-        },
+        }),
       });
     }
 
@@ -143,10 +144,14 @@ export async function GET(request: Request) {
       },
       {
         status: 200,
-        headers: {
+        headers: mergeCors(request, {
           'Cache-Control': 'no-store, max-age=0, must-revalidate',
-        },
+        }),
       },
     );
   }
+}
+
+export async function OPTIONS(request: Request) {
+  return new NextResponse(null, { status: 204, headers: mergeCors(request, {}) });
 }
