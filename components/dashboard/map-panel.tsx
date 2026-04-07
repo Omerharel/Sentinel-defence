@@ -12,11 +12,7 @@ import {
   mapboxFillColorMatchExpression,
   mapboxOutlineColorMatchExpression,
 } from '@/lib/map-alert-styles';
-import {
-  buildTimelineEarlyWarningHighlights,
-  buildTimelineSegments,
-  MAP_TIMELINE_SLIDER_RANGE_MS,
-} from '@/lib/map-timeline';
+import { buildTimelineSegments, MAP_TIMELINE_SLIDER_RANGE_MS } from '@/lib/map-timeline';
 import { jerusalemDateYmd } from '@/lib/jerusalem-calendar';
 import {
   alertEventsTouchingRange,
@@ -356,7 +352,6 @@ export function MapPanel({
     timelineRangeStartMs,
     timelineRangeEndMs,
     timelineSegments,
-    timelineEarlyWarningBands,
     playheadMs,
     alertsAtPlayhead,
   } = useMemo(() => {
@@ -371,7 +366,6 @@ export function MapPanel({
     const forStrip = alertEventsTouchingRange(merged, tMin, tMax);
 
     const segments = buildTimelineSegments(forStrip, tMin, tMax);
-    const earlyWarningBands = buildTimelineEarlyWarningHighlights(forStrip, tMin, tMax);
     const span = tMax - tMin;
     const r = Math.min(1, Math.max(0, timelineEffectiveRatio));
     const playhead = span > 0 ? Math.round(tMin + r * span) : tMax;
@@ -384,7 +378,6 @@ export function MapPanel({
       timelineRangeStartMs: tMin,
       timelineRangeEndMs: tMax,
       timelineSegments: segments,
-      timelineEarlyWarningBands: earlyWarningBands,
       playheadMs: clampedPlayhead,
       alertsAtPlayhead: atPlayhead,
     };
@@ -827,7 +820,6 @@ export function MapPanel({
       {(() => {
         const timelineStripProps = {
           segments: timelineSegments,
-          earlyWarningBands: timelineEarlyWarningBands,
           rangeStartMs: timelineRangeStartMs,
           rangeEndMs: timelineRangeEndMs,
           ratio: timelineEffectiveRatio,

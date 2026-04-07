@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { formatTimelinePlayheadLabel } from '@/lib/dashboard-time';
 import { MAP_FILL_HEX_BY_CATEGORY } from '@/lib/map-alert-styles';
-import type { TimelineEarlyWarningBand, TimelineSegment } from '@/lib/map-timeline';
+import type { TimelineSegment } from '@/lib/map-timeline';
 
 function segmentBarColor(kind: TimelineSegment['kind']): string {
   if (kind === 'quiet') return '#292929';
@@ -19,28 +19,20 @@ function segmentBarColor(kind: TimelineSegment['kind']): string {
   return '#6b7280';
 }
 
-/** מקדים / סיום אירוע — מינימום משקל בפלקס בלבד (לא פיקסלים); נמוך = פס צר יותר */
-const TIMELINE_EARLY_ENDED_VISUAL_MIN_MS = 90 * 1000;
-
 interface MapTimelineStripProps {
   segments: TimelineSegment[];
-  /** התרעות מקדימה — פס צהוב מעל המקטעים כשהדומיננטי אדום וכו׳ */
-  earlyWarningBands: TimelineEarlyWarningBand[];
   rangeStartMs: number;
   rangeEndMs: number;
   ratio: number;
   playheadMs: number;
-  /** תצוגה מקדימה/גרירה — בלי אנימציית מיקום על הטולטיפ והפלייהד */
   isScrubbing?: boolean;
   onPreviewRatioChange: (ratio: number | null) => void;
   onRatioCommit: (ratio: number) => void;
-  /** מובייל: בשורה ליד Last Update — בלי absolute */
   inline?: boolean;
 }
 
 export function MapTimelineStrip({
   segments,
-  earlyWarningBands,
   rangeStartMs,
   rangeEndMs,
   ratio,
@@ -54,7 +46,6 @@ export function MapTimelineStrip({
   const trackRef = useRef<HTMLDivElement>(null);
   const hoverRafRef = useRef<number | null>(null);
   const pendingClientXRef = useRef<number | null>(null);
-  /** צעד אחרון שדווח ב-hover (0–1000) — מונע לולאת setState כשהרקט משתנה בגלל אנימציית flex/שעון. */
   const lastHoverStepRef = useRef<number | null>(null);
   const onPreviewRatioChangeRef = useRef(onPreviewRatioChange);
   const [tooltipVisible, setTooltipVisible] = useState(false);
@@ -81,20 +72,23 @@ export function MapTimelineStrip({
     return Math.min(1, Math.max(0, t));
   }, []);
 
-  const scheduleHoverPreview = useCallback((clientX: number) => {
-    pendingClientXRef.current = clientX;
-    if (hoverRafRef.current !== null) return;
-    hoverRafRef.current = requestAnimationFrame(() => {
-      hoverRafRef.current = null;
-      const x = pendingClientXRef.current;
-      if (x == null) return;
-      const next = ratioFromClientX(x);
-      const step = Math.round(next * 1000);
-      if (lastHoverStepRef.current === step) return;
-      lastHoverStepRef.current = step;
-      onPreviewRatioChangeRef.current(step / 1000);
-    });
-  }, [ratioFromClientX]);
+  const scheduleHoverPreview = useCallback(
+    (clientX: number) => {
+      pendingClientXRef.current = clientX;
+      if (hoverRafRef.current !== null) return;
+      hoverRafRef.current = requestAnimationFrame(() => {
+        hoverRafRef.current = null;
+        const x = pendingClientXRef.current;
+        if (x == null) return;
+        const next = ratioFromClientX(x);
+        const step = Math.round(next * 1000);
+        if (lastHoverStepRef.current === step) return;
+        lastHoverStepRef.current = step;
+        onPreviewRatioChangeRef.current(step / 1000);
+      });
+    },
+    [ratioFromClientX],
+  );
 
   const barSegments =
     total > 0 && segments.length > 0
@@ -135,23 +129,13 @@ export function MapTimelineStrip({
           >
             <div
               className="pointer-events-none absolute inset-x-0 top-1/2 h-3 w-full -translate-y-1/2 overflow-hidden rounded-full"
-              style={{ backgroundColor: '#2d4f8f' }}
+              style={{ backgroundColor: '#1a1a1a' }}
             >
               <div className="absolute inset-0 z-0 flex">
                 {barSegments.map((s, i) => {
                   const dur = s.endMs - s.startMs;
-                  const isEarlyOrEnded =
-                    s.kind === 'early warning' || s.kind === 'incident ended';
-                  const flexGrow =
-                    total > 0
-                      ? Math.max(
-                          1,
-                          isEarlyOrEnded
-                            ? Math.max(dur, TIMELINE_EARLY_ENDED_VISUAL_MIN_MS)
-                            : dur,
-                        )
-                      : 1;
-                  const minWidthPx = s.kind === 'quiet' ? 0 : 4;
+                  const flexGrow = total > 0 ? Math.max(1, dur) : 1;
+                  const minWidthPx = s.kind === 'quiet' ? 0 : 3;
                   const bg = segmentBarColor(s.kind);
                   return (
                     <div
@@ -166,25 +150,6 @@ export function MapTimelineStrip({
                     />
                   );
                 })}
-              </div>
-              <div
-                className="pointer-events-none absolute inset-0 z-[1]"
-                aria-hidden
-              >
-                {earlyWarningBands.map((b) => (
-                  <div
-                    key={b.id}
-                    className="absolute top-0 h-full"
-                    style={{
-                      left: `${b.leftPct}%`,
-                      width: `${b.widthPct}%`,
-                      minWidth: 3,
-                      backgroundColor: '#FFE57F',
-                      opacity: 0.95,
-                      boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.2)',
-                    }}
-                  />
-                ))}
               </div>
               {tooltipVisible ? (
                 <div
@@ -226,7 +191,7 @@ export function MapTimelineStrip({
               onChange={(e) => {
                 onRatioCommit(Number((e.target as HTMLInputElement).value) / 1000);
               }}
-              className="absolute inset-0 z-[1] h-full w-full cursor-ew-resize opacity-0 disabled:cursor-not-allowed"
+              className="absolute inset-0 z-[3] h-full w-full cursor-ew-resize opacity-0 disabled:cursor-not-allowed"
               style={{ touchAction: 'none' }}
               aria-label="מיקום בציר הזמן"
             />

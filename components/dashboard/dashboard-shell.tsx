@@ -470,7 +470,7 @@ export function DashboardShell() {
 
             <div className="pointer-events-none absolute inset-0 z-10 flex flex-col justify-end gap-3 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:hidden">
               <div className="flex w-full shrink-0 flex-row items-center justify-between gap-2">
-                <div className="pointer-events-auto shrink-0">
+                <div className="pointer-events-auto flex shrink-0 items-center gap-2">
                   <div className="rounded-full bg-black/45 px-4 py-2 backdrop-blur-md">
                     <LastUpdate fetchedAt={summary.fetchedAt} isLoading={isLoading} />
                   </div>
