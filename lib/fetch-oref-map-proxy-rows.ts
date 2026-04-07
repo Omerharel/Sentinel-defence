@@ -5,7 +5,8 @@ import { fetchTzevaAlertsHistoryAsRows } from '@/lib/tzeva-alerts-history-rows';
 /**
  * Vercel Hobby — מקסימום ~10s לפונקציה; שני ה־fetch במקביל אז timeout לכל אחד חייב להישאר מתחת למגבלה הכוללת.
  */
-const REQUEST_TIMEOUT_MS = 8_000;
+const REQUEST_TIMEOUT_MS = 4_500;
+const SUPPLEMENT_TIMEOUT_MS = 1_200;
 
 const DEFAULT_OREF_MAP_BASE = 'https://oref-map.org';
 
@@ -164,6 +165,17 @@ export type OrefMapProxyFetchResult = {
   usedOrefPublicHistorySupplement?: boolean;
 };
 
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Promise<T> {
+  const timer = new Promise<T>((resolve) => {
+    setTimeout(() => resolve(fallback), timeoutMs);
+  });
+  try {
+    return await Promise.race([promise, timer]);
+  } catch {
+    return fallback;
+  }
+}
+
 function parseHistoryTextToRows(text: string): AlertHistoryRow[] {
   const rows: AlertHistoryRow[] = [];
   if (!text) return rows;
@@ -244,7 +256,7 @@ async function fetchOrefMapProxyOnce(): Promise<OrefMapProxyFetchResult> {
 export async function fetchOrefMapProxyAsAlertRows(): Promise<OrefMapProxyFetchResult> {
   let r = await fetchOrefMapProxyOnce();
   if (!r.history.ok && !r.live.ok) {
-    await new Promise((res) => setTimeout(res, 450));
+    // Immediate retry avoids adding fixed delay on each failed cold request.
     r = await fetchOrefMapProxyOnce();
   }
 
@@ -255,7 +267,11 @@ export async function fetchOrefMapProxyAsAlertRows(): Promise<OrefMapProxyFetchR
     (Boolean(r.historyParsedEmpty) && getOrefMapProxyBaseUrl() !== DEFAULT_OREF_MAP_BASE);
 
   if (shouldMergePublicHistory) {
-    const pub = await fetchOrefUpstreamText(`${DEFAULT_OREF_MAP_BASE}/api/history`);
+    const pub = await withTimeout(
+      fetchOrefUpstreamText(`${DEFAULT_OREF_MAP_BASE}/api/history`),
+      SUPPLEMENT_TIMEOUT_MS,
+      { ok: false, text: '', status: 408 },
+    );
     const extra = pub.ok && pub.text ? parseHistoryTextToRows(pub.text) : [];
     if (extra.length > 0) {
       r = {
@@ -274,7 +290,11 @@ export async function fetchOrefMapProxyAsAlertRows(): Promise<OrefMapProxyFetchR
     !r.live.ok &&
     r.rows.length === 0
   ) {
-    const tzevaRows = await fetchTzevaAlertsHistoryAsRows(REQUEST_TIMEOUT_MS);
+    const tzevaRows = await withTimeout(
+      fetchTzevaAlertsHistoryAsRows(REQUEST_TIMEOUT_MS),
+      SUPPLEMENT_TIMEOUT_MS,
+      [],
+    );
     if (tzevaRows.length > 0) {
       r = {
         rows: tzevaRows,
@@ -286,7 +306,11 @@ export async function fetchOrefMapProxyAsAlertRows(): Promise<OrefMapProxyFetchR
   }
 
   if (process.env.SENTINEL_DISABLE_DLESHEM_CSV !== '1') {
-    const dleshem = await fetchDleshemCsvSupplementRows(Math.min(6000, REQUEST_TIMEOUT_MS + 2000));
+    const dleshem = await withTimeout(
+      fetchDleshemCsvSupplementRows(Math.min(6000, REQUEST_TIMEOUT_MS + 2000)),
+      SUPPLEMENT_TIMEOUT_MS,
+      [],
+    );
     if (dleshem.length > 0) {
       r = { ...r, rows: mergeRowsDedupe(r.rows, dleshem) };
     }
