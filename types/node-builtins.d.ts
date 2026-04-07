@@ -1,7 +1,5 @@
 declare namespace NodeJS {
   interface ProcessEnv {
-    /** `1` — להציג כפתור Demo בדשבורד (מזריק התראות לדוגמה). */
-    NEXT_PUBLIC_SHOW_DEMO_BUTTON?: string;
     /** `1` — לא לחבר WebSocket לצבע אדום (דורש rebuild — משתנה NEXT_PUBLIC). */
     NEXT_PUBLIC_SENTINEL_DISABLE_TZEVA_WS?: string;
     /** פרוקסי WS (Railway alerts-proxy וכו׳). מתעלמים כש־NEXT_PUBLIC_SENTINEL_DISABLE_TZEWA_WS=1. */

@@ -20,12 +20,6 @@ export function loadLocationsPolygonsJson(): Promise<Record<string, unknown> | n
   return polygonsJsonPromise;
 }
 
-export async function loadLocationsPolygonKeys(): Promise<string[]> {
-  const json = await loadLocationsPolygonsJson();
-  if (!json) return [];
-  return Object.keys(json).filter((k) => k && !k.startsWith('_'));
-}
-
 /** Manual overrides where spelling or granularity differs. */
 export const PHO_TO_MUN_HEB: Record<string, string> = {
   /** Keys must exist in `locations_polygons.json` — PHO sub-zones vs settlement names. */

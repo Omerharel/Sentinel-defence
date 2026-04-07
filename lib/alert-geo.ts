@@ -30,27 +30,6 @@ function stablePolygonIdForCity(city: string): string {
     .toLowerCase();
 }
 
-export function buildAlertPointsGeoJSON(alerts: AlertEvent[]) {
-  return {
-    type: 'FeatureCollection' as const,
-    features: alerts.map((alert) => {
-      const id = stablePolygonIdForCity(alert.city);
-      return {
-        type: 'Feature' as const,
-        properties: {
-          id: `${id}-point`,
-          city: alert.city,
-          polygonId: id,
-        },
-        geometry: {
-          type: 'Point' as const,
-          coordinates: fallbackCoordinate(alert.city),
-        },
-      };
-    }),
-  };
-}
-
 export function getRegionIdForCity(city: string) {
   return stablePolygonIdForCity(city);
 }
