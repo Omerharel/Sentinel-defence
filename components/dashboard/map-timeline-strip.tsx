@@ -2,11 +2,13 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { formatTimelinePlayheadLabel } from '@/lib/dashboard-time';
+import { MAP_FILL_HEX_BY_CATEGORY } from '@/lib/map-alert-styles';
 import type { TimelineEarlyWarningBand, TimelineSegment } from '@/lib/map-timeline';
 
 function segmentBarColor(kind: TimelineSegment['kind']): string {
   if (kind === 'quiet') return '#292929';
-  if (kind === 'rockets' || kind === 'hostile aircraft') return '#FF848C';
+  if (kind === 'rockets') return '#FF848C';
+  if (kind === 'hostile aircraft') return MAP_FILL_HEX_BY_CATEGORY['hostile aircraft'];
   if (kind === 'early warning') return '#FFE57F';
   if (kind === 'incident ended') return '#0BC5B3';
   if (kind === 'earthquake') return '#FF848C';
