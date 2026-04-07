@@ -27,6 +27,7 @@ import { getFallbackLngLatForCity } from '@/lib/alert-geo';
 import { loadLocationsPolygonsJson, resolvePhoLabelToMunKey } from '@/lib/mun-resolve';
 import { MapTimelineStrip } from '@/components/dashboard/map-timeline-strip';
 import { MAP_POLYGON_FADE_MS } from '@/lib/map-polygon-fade-ms';
+import { getApiUrl } from '@/lib/api-base';
 
 function subscribeLgMedia(callback: () => void) {
   const mq = window.matchMedia('(min-width: 1024px)');
@@ -261,7 +262,7 @@ export function MapPanel({
 
     const loadDayHistory = async () => {
       try {
-        const res = await fetch(`/api/day-history?date=${encodeURIComponent(ymdForThisEffect)}`, {
+        const res = await fetch(getApiUrl(`/api/day-history?date=${encodeURIComponent(ymdForThisEffect)}`), {
           cache: 'no-store',
         });
         if (isStaleResponse()) return;

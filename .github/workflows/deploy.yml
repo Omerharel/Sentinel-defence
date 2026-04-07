@@ -31,6 +31,7 @@ jobs:
         env:
           STATIC_EXPORT: 'true'
           NEXT_PUBLIC_MAPBOX_TOKEN: ${{ secrets.NEXT_PUBLIC_MAPBOX_TOKEN }}
+          NEXT_PUBLIC_API_BASE: ${{ vars.NEXT_PUBLIC_API_BASE || 'https://sentinel-defence.vercel.app' }}
         run: |
           trap 'if [ -d /tmp/sentinel-app-api-routes ]; then mv /tmp/sentinel-app-api-routes app/api; fi' EXIT
           mv app/api /tmp/sentinel-app-api-routes

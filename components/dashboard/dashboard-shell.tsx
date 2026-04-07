@@ -14,6 +14,7 @@ import {
 } from '@/lib/alert-normalize';
 import { getAlertListMergeMinuteKey } from '@/lib/dashboard-time';
 import { MAP_POLYGON_FADE_MS } from '@/lib/map-polygon-fade-ms';
+import { getApiUrl } from '@/lib/api-base';
 
 const POLLING_INTERVAL_MS = 4000;
 const ALERT_SOUND_SRC = '/bell.mp3';
@@ -124,7 +125,9 @@ export function DashboardShell() {
 
     const loadAlerts = async () => {
       try {
-        const response = await fetch('/api/alerts?maxEvents=2000&scanCap=4000', { cache: 'no-store' });
+        const response = await fetch(getApiUrl('/api/alerts?maxEvents=2000&scanCap=4000'), {
+          cache: 'no-store',
+        });
         const data = await response.json();
 
         if (!response.ok) {
