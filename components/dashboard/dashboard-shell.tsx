@@ -124,7 +124,7 @@ export function DashboardShell() {
 
     const loadAlerts = async () => {
       try {
-        const response = await fetch('/api/alerts?maxEvents=6000&scanCap=12000', { cache: 'no-store' });
+        const response = await fetch('/api/alerts?maxEvents=2000&scanCap=4000', { cache: 'no-store' });
         const data = await response.json();
 
         if (!response.ok) {
