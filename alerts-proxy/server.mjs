@@ -26,6 +26,18 @@ const OREF_PASSTHROUGH_UA =
 const TZEWA_WS_UPSTREAM =
   (process.env.TZEWA_WS_UPSTREAM_URL ?? '').trim() || DEFAULT_TZEWA_WS_UPSTREAM;
 
+const DEFAULT_ALLOWED_ORIGINS = [
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
+  'http://sentinel-defence-site.s3-website.eu-north-1.amazonaws.com',
+];
+const ALLOWED_ORIGINS = new Set(
+  (process.env.CORS_ALLOWED_ORIGINS ?? DEFAULT_ALLOWED_ORIGINS.join(','))
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean),
+);
+
 function parseJsonSafely(text) {
   const clean = text.replace(/^\uFEFF/, '').trim();
   if (!clean) return [];
@@ -69,6 +81,18 @@ async function fetchJsonFrom(url, headers) {
   }
 }
 
+function applyCors(req, res) {
+  const origin = req.headers.origin;
+  if (origin && ALLOWED_ORIGINS.has(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Vary', 'Origin');
+  } else {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+  }
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+}
+
 /** Plain GET in a browser tab is not a WebSocket — avoid confusing "Cannot GET /tzeva-socket". */
 function tzevaSocketPlainGet(_req, res) {
   res.status(200).type('text/plain; charset=utf-8').send(
@@ -83,6 +107,15 @@ function tzevaSocketPlainGet(_req, res) {
 }
 app.get('/tzeva-socket', tzevaSocketPlainGet);
 app.get('/tzeva-socket/', tzevaSocketPlainGet);
+
+app.use((req, res, next) => {
+  applyCors(req, res);
+  if (req.method === 'OPTIONS') {
+    res.status(204).end();
+    return;
+  }
+  next();
+});
 
 async function passthroughOrefMap(req, res, orefPath) {
   const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
@@ -111,11 +144,49 @@ async function passthroughOrefMap(req, res, orefPath) {
   }
 }
 
+async function fetchMappedTzevaRows() {
+  const tzevaResult = await fetchJsonFrom(TZEWA_URL, {
+    Accept: 'application/json, text/plain, */*',
+    'User-Agent':
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+  });
+  if (tzevaResult.ok) {
+    return { ok: true, rows: mapTzevaAlertsHistoryToRows(tzevaResult.payload) };
+  }
+  return {
+    ok: false,
+    errorBody: {
+      ok: false,
+      source: 'proxy',
+      error: 'Tzeva Adom alerts-history failed',
+      upstream: {
+        tzeva: {
+          status: tzevaResult.status,
+          bodyHead: tzevaResult.bodyHead,
+        },
+      },
+    },
+  };
+}
+
 app.get('/api/history', (req, res) => {
   void passthroughOrefMap(req, res, '/api/history');
 });
 app.get('/api/alerts', (req, res) => {
-  void passthroughOrefMap(req, res, '/api/alerts');
+  void (async () => {
+    try {
+      const r = await fetchMappedTzevaRows();
+      if (r.ok) return res.status(200).json(r.rows);
+      return res.status(502).json(r.errorBody);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown proxy error';
+      return res.status(502).json({
+        ok: false,
+        source: 'proxy',
+        error: message,
+      });
+    }
+  })();
 });
 app.get('/api/day-history', (req, res) => {
   void passthroughOrefMap(req, res, '/api/day-history');
@@ -139,28 +210,9 @@ app.get('/health', (_req, res) => {
 
 app.get('/alerts', async (_req, res) => {
   try {
-    const tzevaResult = await fetchJsonFrom(TZEWA_URL, {
-      Accept: 'application/json, text/plain, */*',
-      'User-Agent':
-        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-    });
-
-    if (tzevaResult.ok) {
-      const mapped = mapTzevaAlertsHistoryToRows(tzevaResult.payload);
-      return res.status(200).json(mapped);
-    }
-
-    return res.status(502).json({
-      ok: false,
-      source: 'proxy',
-      error: 'Tzeva Adom alerts-history failed',
-      upstream: {
-        tzeva: {
-          status: tzevaResult.status,
-          bodyHead: tzevaResult.bodyHead,
-        },
-      },
-    });
+    const r = await fetchMappedTzevaRows();
+    if (r.ok) return res.status(200).json(r.rows);
+    return res.status(502).json(r.errorBody);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown proxy error';
     return res.status(502).json({
