@@ -33,6 +33,8 @@ const BLIP_HYST_PAD = 8;
 const RING_STROKE_W = 2;
 /** רקע פנים הרדאר (בתוך העיגול החיצוני) */
 const RADAR_FACE_FILL = '#232323';
+/** מסגרת טבעות הרדאר */
+const RING_STROKE_COLOR = '#424242';
 const SW_A = 105;
 const SW_B = 172;
 
@@ -194,7 +196,7 @@ export function RadarIdleIcon({
         cy={C}
         r={R_OUT}
         fill="none"
-        stroke="#7a7a7a"
+        stroke={RING_STROKE_COLOR}
         strokeWidth={RING_STROKE_W}
       />
       <circle
@@ -202,7 +204,7 @@ export function RadarIdleIcon({
         cy={C}
         r={R_IN}
         fill="none"
-        stroke="#7a7a7a"
+        stroke={RING_STROKE_COLOR}
         strokeWidth={RING_STROKE_W}
       />
       <g ref={blipRef} transform={`translate(${blipX} ${blipY})`}>
