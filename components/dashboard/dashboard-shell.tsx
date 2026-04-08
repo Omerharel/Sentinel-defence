@@ -485,7 +485,7 @@ export function DashboardShell() {
           <SettingsMenu
             silentAlerts={silentAlerts}
             onSilentAlertsChange={handleSilentAlertsChange}
-            triggerClassName="inline-flex h-9 w-9 shrink-0 items-center justify-center text-white transition-colors hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/40"
+            triggerClassName="inline-flex h-9 w-9 shrink-0 items-center justify-center text-white transition-colors hover:bg-white/10 focus-visible:outline-none"
           />
         </div>
 
@@ -500,7 +500,10 @@ export function DashboardShell() {
               />
             </div>
 
-            <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex flex-col items-stretch gap-2 px-3 pt-[max(0.5rem,env(safe-area-inset-top))] pb-10 lg:hidden">
+            <div
+              className="pointer-events-none absolute inset-x-0 top-0 z-10 flex flex-col items-stretch gap-2 px-3 pb-10 lg:hidden"
+              style={{ paddingTop: 'max(0.5rem, env(safe-area-inset-top))' }}
+            >
               <div className="pointer-events-auto flex w-full max-w-md flex-col items-start gap-2 self-start">
                 <MobileAlertSummary
                   groupedAlerts={groupedAlerts}
@@ -510,7 +513,10 @@ export function DashboardShell() {
               </div>
             </div>
 
-            <div className="pointer-events-none absolute inset-0 z-10 flex flex-col justify-end gap-3 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:hidden">
+            <div
+              className="pointer-events-none absolute inset-0 z-10 flex flex-col justify-end gap-3 px-3 pt-3 lg:hidden"
+              style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
+            >
               <div className="pointer-events-auto flex w-full shrink-0 flex-row items-center justify-between gap-2">
                 <div className="rounded-full bg-black/45 px-4 py-2 backdrop-blur-md">
                   <LastUpdate fetchedAt={summary.fetchedAt} isLoading={isLoading} />
@@ -518,7 +524,7 @@ export function DashboardShell() {
                 <SettingsMenu
                   silentAlerts={silentAlerts}
                   onSilentAlertsChange={handleSilentAlertsChange}
-                  triggerClassName="inline-flex h-10 w-10 shrink-0 items-center justify-center border border-white/20 bg-black/45 text-white backdrop-blur-md transition-colors hover:bg-black/55 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/40"
+                  triggerClassName="inline-flex h-10 w-10 shrink-0 items-center justify-center border-none bg-black/45 text-white backdrop-blur-md transition-colors hover:bg-black/55 focus-visible:outline-none"
                 />
               </div>
               <div className="pointer-events-auto min-h-0 max-h-[min(52vh,calc(100dvh-10rem))] w-full overflow-y-auto overflow-x-hidden rounded-2xl border border-border/90 bg-background shadow-[0_-8px_40px_rgba(0,0,0,0.45)]">

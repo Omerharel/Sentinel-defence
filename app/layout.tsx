@@ -5,7 +5,7 @@ import 'mapbox-gl/dist/mapbox-gl.css'
 
 const inter = Inter({ subsets: ["latin"] });
 
-/** נדרש ל־env(safe-area-inset-*) ולפריסה קצה־לקצה ב־iPhone (כולל Dynamic Island). */
+/** viewport-fit=cover — ריווחי safe area במובייל מוגדרים ב־dashboard-shell (inline styles). */
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
