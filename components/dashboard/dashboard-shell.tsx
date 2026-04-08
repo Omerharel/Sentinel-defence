@@ -561,7 +561,7 @@ function SettingsMenu({ silentAlerts, onSilentAlertsChange, triggerClassName }: 
         <button
           type="button"
           aria-label="Settings"
-          className={cn(triggerClassName, 'rounded-[8px]')}
+          className={cn(triggerClassName, 'rounded-[12px]')}
         >
           <Settings className="h-5 w-5" aria-hidden strokeWidth={1.75} />
         </button>
