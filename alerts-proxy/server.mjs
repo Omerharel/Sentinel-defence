@@ -205,12 +205,6 @@ const UPSTREAM_WS_HEADERS = {
 };
 
 server.on('upgrade', (request, socket, head) => {
-  console.log('[tzeva-socket] upgrade request', {
-    url: request.url,
-    effectiveUpstream: TZEWA_WS_UPSTREAM,
-    upstreamFromEnv: !!(process.env.TZEWA_WS_UPSTREAM_URL ?? '').trim(),
-  });
-
   const path = request.url?.split('?')[0] ?? '';
   if (path !== '/tzeva-socket' && path !== '/tzeva-socket/') {
     socket.destroy();
@@ -223,7 +217,6 @@ server.on('upgrade', (request, socket, head) => {
     const pendingFromClient = [];
 
     upstream.on('open', () => {
-      console.log('[tzeva-socket] upstream open');
       for (const { data, isBinary } of pendingFromClient) {
         if (upstream.readyState === WebSocket.OPEN) {
           upstream.send(data, { binary: isBinary });
@@ -274,11 +267,7 @@ server.on('upgrade', (request, socket, head) => {
       shutdown();
     });
 
-    upstream.on('close', (code, reason) => {
-      console.log('[tzeva-socket] upstream close', {
-        code,
-        reason: reason?.toString?.() ?? '',
-      });
+    upstream.on('close', () => {
       shutdown();
     });
 

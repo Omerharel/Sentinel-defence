@@ -42,8 +42,7 @@ export async function GET(request: Request) {
     return NextResponse.json(timelineRows, {
       headers: dateHeaders,
     });
-  } catch (e) {
-    console.warn('[day-history] tzeva fetch error', e);
+  } catch {
     return NextResponse.json([], {
       headers: {
         'Cache-Control': 'no-store',

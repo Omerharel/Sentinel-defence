@@ -1,6 +1,16 @@
 'use client';
 
+import type { MouseEvent, PointerEvent } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Settings } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Switch } from '@/components/ui/switch';
 import { LastUpdate } from '@/components/dashboard/last-update';
 import { MapPanel, type MapFocusCityRequest } from '@/components/dashboard/map-panel';
 import { MobileAlertSummary } from '@/components/dashboard/mobile-alert-summary';
@@ -16,8 +26,11 @@ import {
 import { getAlertListMergeMinuteKey } from '@/lib/dashboard-time';
 import { MAP_POLYGON_FADE_MS } from '@/lib/map-polygon-fade-ms';
 import { getApiUrl } from '@/lib/api-base';
+import { APP_VERSION } from '@/lib/app-version';
+import { cn } from '@/lib/utils';
 
 const POLLING_INTERVAL_MS = 4000;
+const SILENT_ALERTS_STORAGE_KEY = 'sentinel-silent-alerts';
 const ALERT_SOUND_SRC = '/bell.mp3';
 const INCIDENT_ENDED_SOUND_SRC = '/Notification sound.mp3';
 const ALERT_SOUND_COOLDOWN_MS = 30 * 1000;
@@ -56,7 +69,31 @@ export function DashboardShell() {
   const [rightPanelTimeTick, setRightPanelTimeTick] = useState(0);
   /** מובייל: פילטר לפי קטגוריה ב־pills — null = כל ההתראות */
   const [mobileAlertFilter, setMobileAlertFilter] = useState<AlertCategory | null>(null);
-  const [mobileTimelineHostEl, setMobileTimelineHostEl] = useState<HTMLDivElement | null>(null);
+  const [silentAlerts, setSilentAlerts] = useState(false);
+  const silentAlertsRef = useRef(false);
+
+  useEffect(() => {
+    silentAlertsRef.current = silentAlerts;
+  }, [silentAlerts]);
+
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(SILENT_ALERTS_STORAGE_KEY) === '1') {
+        setSilentAlerts(true);
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const handleSilentAlertsChange = useCallback((checked: boolean) => {
+    setSilentAlerts(checked);
+    try {
+      localStorage.setItem(SILENT_ALERTS_STORAGE_KEY, checked ? '1' : '0');
+    } catch {
+      // ignore
+    }
+  }, []);
 
   const handleCityChipClick = useCallback((cityHebrew: string) => {
     setMapFocusCityRequest((prev) => ({
@@ -239,6 +276,7 @@ export function DashboardShell() {
           targetAudio &&
           hasUserInteractedRef.current &&
           isTargetUnlocked &&
+          !silentAlertsRef.current &&
           Date.now() - lastSoundPlayedAtRef.current >= ALERT_SOUND_COOLDOWN_MS
         ) {
           try {
@@ -441,12 +479,17 @@ export function DashboardShell() {
 
   return (
     <div className="h-[100dvh] min-h-0 bg-background flex flex-col font-sans">
-      <main className="flex-1 flex min-h-0 flex-col gap-0 overflow-hidden lg:gap-3 lg:p-6">
-        <div className="hidden w-full flex-wrap items-center gap-3 lg:flex">
+      <main className="flex-1 flex min-h-0 flex-col gap-0 overflow-hidden lg:gap-2 lg:p-4">
+        <div className="hidden w-full flex-wrap items-center justify-between gap-3 lg:flex">
           <LastUpdate fetchedAt={summary.fetchedAt} isLoading={isLoading} />
+          <SettingsMenu
+            silentAlerts={silentAlerts}
+            onSilentAlertsChange={handleSilentAlertsChange}
+            triggerClassName="inline-flex h-9 w-9 shrink-0 items-center justify-center text-white transition-colors hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/40"
+          />
         </div>
 
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden lg:flex-row lg:gap-4">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden lg:flex-row lg:gap-2">
           <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-card lg:rounded-sm">
             <div className="pointer-events-none absolute inset-0 z-[1] bg-black/20 lg:hidden" aria-hidden />
             <div className="relative z-0 min-h-0 flex-1">
@@ -454,12 +497,11 @@ export function DashboardShell() {
                 alerts={mapPanelEventPool}
                 fadingEventIds={fadingMapEventIds}
                 focusCityRequest={mapFocusCityRequest}
-                mobileTimelineHostEl={mobileTimelineHostEl}
               />
             </div>
 
-            <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex flex-col items-center gap-2 px-3 pt-[max(0.5rem,env(safe-area-inset-top))] pb-10 lg:hidden">
-              <div className="pointer-events-auto flex w-full max-w-md flex-col items-center gap-2">
+            <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex flex-col items-stretch gap-2 px-3 pt-[max(0.5rem,env(safe-area-inset-top))] pb-10 lg:hidden">
+              <div className="pointer-events-auto flex w-full max-w-md flex-col items-start gap-2 self-start">
                 <MobileAlertSummary
                   groupedAlerts={groupedAlerts}
                   selectedCategory={mobileAlertFilter}
@@ -469,15 +511,14 @@ export function DashboardShell() {
             </div>
 
             <div className="pointer-events-none absolute inset-0 z-10 flex flex-col justify-end gap-3 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:hidden">
-              <div className="flex w-full shrink-0 flex-row items-center justify-between gap-2">
-                <div className="pointer-events-auto flex shrink-0 items-center gap-2">
-                  <div className="rounded-full bg-black/45 px-4 py-2 backdrop-blur-md">
-                    <LastUpdate fetchedAt={summary.fetchedAt} isLoading={isLoading} />
-                  </div>
+              <div className="pointer-events-auto flex w-full shrink-0 flex-row items-center justify-between gap-2">
+                <div className="rounded-full bg-black/45 px-4 py-2 backdrop-blur-md">
+                  <LastUpdate fetchedAt={summary.fetchedAt} isLoading={isLoading} />
                 </div>
-                <div
-                  ref={setMobileTimelineHostEl}
-                  className="pointer-events-auto flex min-h-[2rem] min-w-0 flex-1 items-center justify-end"
+                <SettingsMenu
+                  silentAlerts={silentAlerts}
+                  onSilentAlertsChange={handleSilentAlertsChange}
+                  triggerClassName="inline-flex h-10 w-10 shrink-0 items-center justify-center border border-white/20 bg-black/45 text-white backdrop-blur-md transition-colors hover:bg-black/55 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/40"
                 />
               </div>
               <div className="pointer-events-auto min-h-0 max-h-[min(52vh,calc(100dvh-10rem))] w-full overflow-y-auto overflow-x-hidden rounded-2xl border border-border/90 bg-background shadow-[0_-8px_40px_rgba(0,0,0,0.45)]">
@@ -498,5 +539,46 @@ export function DashboardShell() {
         </div>
       </main>
     </div>
+  );
+}
+
+type SettingsMenuProps = {
+  silentAlerts: boolean;
+  onSilentAlertsChange: (checked: boolean) => void;
+  triggerClassName: string;
+};
+
+function SettingsMenu({ silentAlerts, onSilentAlertsChange, triggerClassName }: SettingsMenuProps) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          aria-label="Settings"
+          className={cn(triggerClassName, 'rounded-[8px]')}
+        >
+          <Settings className="h-5 w-5" aria-hidden strokeWidth={1.75} />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" sideOffset={8} className="w-[min(calc(100vw-2rem),16rem)]">
+        <DropdownMenuItem
+          className="flex cursor-default items-center justify-between gap-4 py-2.5 focus:bg-transparent data-[highlighted]:bg-transparent data-[highlighted]:text-[#808080]"
+          onSelect={(e: Event) => e.preventDefault()}
+        >
+          <span>Silent Alerts</span>
+          <Switch
+            checked={silentAlerts}
+            onCheckedChange={onSilentAlertsChange}
+            onPointerDown={(e: PointerEvent<HTMLButtonElement>) => e.stopPropagation()}
+            onClick={(e: MouseEvent<HTMLButtonElement>) => e.stopPropagation()}
+          />
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <div className="flex items-center justify-between gap-4 px-2 py-2 text-sm text-[#808080]">
+          <span>Version</span>
+          <span className="tabular-nums">{APP_VERSION}</span>
+        </div>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

@@ -5,11 +5,12 @@ import Image from 'next/image';
 
 import type { AlertCategory, AlertEvent, AlertEventSource } from '@/lib/alert-types';
 
+/** סדר תצוגה במובייל (למעלה למטה): מטוס עוין → רקטות → מקדים → סיום אירוע */
 const SUMMARY_ORDER: AlertCategory[] = [
-  'incident ended',
-  'rockets',
   'hostile aircraft',
+  'rockets',
   'early warning',
+  'incident ended',
 ];
 
 type Grouped = {
@@ -32,7 +33,7 @@ function chipLabel(category: AlertCategory, count: number): string {
     case 'hostile aircraft':
       return `${n} Aircraft Alert${n === 1 ? '' : 's'}`;
     case 'early warning':
-      return `${n} Early warning`;
+      return `${n} Early Warning${n === 1 ? '' : 's'}`;
     default:
       return `${n} alerts`;
   }
@@ -98,40 +99,36 @@ export function MobileAlertSummary({
   }
 
   return (
-    <div className="flex w-full max-w-[100vw] justify-center overflow-x-auto px-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-      <div className="flex w-max min-w-0 gap-2 py-0.5">
-        {chips.map(({ category, count }) => {
-          let chipOpacity = 1;
-          for (const g of groupedAlerts) {
-            if (g.category === category) {
-              chipOpacity = Math.min(chipOpacity, g.fadeOpacity ?? 1);
-            }
+    <div className="flex w-full flex-col items-start gap-2 py-0.5">
+      {chips.map(({ category, count }) => {
+        let chipOpacity = 1;
+        for (const g of groupedAlerts) {
+          if (g.category === category) {
+            chipOpacity = Math.min(chipOpacity, g.fadeOpacity ?? 1);
           }
-          const isEnded = category === 'incident ended';
-          const isSelected = selectedCategory === category;
-          const baseIdle = isEnded
-            ? 'bg-black/45 text-[rgb(11,197,179)]'
-            : 'bg-black/40 text-white';
-          const selectedClasses = isEnded
-            ? 'bg-white/15 text-[rgb(11,197,179)] ring-1 ring-white/20 shadow-sm'
-            : 'bg-white/15 text-white ring-1 ring-white/20 shadow-sm';
-          return (
-            <button
-              key={category}
-              type="button"
-              onClick={() => onSelectCategory(category)}
-              aria-pressed={isSelected}
-              style={{ opacity: chipOpacity }}
-              className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1.5 backdrop-blur-md transition-[opacity,color] duration-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/40 ${
-                isSelected ? selectedClasses : baseIdle
-              }`}
-            >
-              <ChipIcon category={category} />
-              <span className="text-xs font-medium">{chipLabel(category, count)}</span>
-            </button>
-          );
-        })}
-      </div>
+        }
+        const isEnded = category === 'incident ended';
+        const isSelected = selectedCategory === category;
+        const baseIdle = isEnded ? 'bg-black/55 text-white' : 'bg-black/45 text-white';
+        const selectedClasses = isEnded
+          ? 'bg-white/15 text-white ring-1 ring-white/20 shadow-sm'
+          : 'bg-white/15 text-white ring-1 ring-white/20 shadow-sm';
+        return (
+          <button
+            key={category}
+            type="button"
+            onClick={() => onSelectCategory(category)}
+            aria-pressed={isSelected}
+            style={{ opacity: chipOpacity }}
+            className={`inline-flex max-w-full shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 backdrop-blur-md transition-[opacity,color] duration-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/40 ${
+              isSelected ? selectedClasses : baseIdle
+            }`}
+          >
+            <ChipIcon category={category} />
+            <span className="text-xs font-medium">{chipLabel(category, count)}</span>
+          </button>
+        );
+      })}
     </div>
   );
 }

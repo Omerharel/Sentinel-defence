@@ -262,22 +262,10 @@ export interface TzevaWebSocketOptions {
 /**
  * Browser WebSocket to Tzeva; reconnects like the official client (~5s).
  */
-let warnedMissingTzevaWsUrl = false;
-
 export function connectTzevaWebSocket(options: TzevaWebSocketOptions): () => void {
   const { onSystemMessage, onOpen, onClose, reconnectMs = 5000, wsUrl } = options;
   const connectUrl = (wsUrl ?? getTzevaWebSocketClientUrl()).trim();
   if (!connectUrl) {
-    if (
-      typeof window !== 'undefined' &&
-      !warnedMissingTzevaWsUrl &&
-      !isTzevaWebSocketDisabled()
-    ) {
-      warnedMissingTzevaWsUrl = true;
-      console.warn(
-        '[Sentinel] Tzeva WebSocket URL missing: set TZEWA_WS_PROXY_URL or NEXT_PUBLIC_TZEWA_WS_PROXY_URL on the server (Vercel). Use TZEWA_WS_PROXY_URL to avoid build-time inlining issues; the app also reads /api/tzeva/ws-proxy-url at runtime.',
-      );
-    }
     return () => undefined;
   }
   let ws: WebSocket | null = null;

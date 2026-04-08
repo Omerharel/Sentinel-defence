@@ -1,8 +1,14 @@
 import type { AlertCategory, AlertEvent } from '@/lib/alert-types';
 import { ALERT_CATEGORY_TTL_MS } from '@/lib/alert-normalize';
 
-/** רוחב חלון הסליידר על ציר הזמן (אחורה מ־"עכשיו"). */
-export const MAP_TIMELINE_SLIDER_RANGE_MS = 60 * 60 * 1000;
+/** רוחב חלון הסליידר על ציר הזמן (אחורה מ־"עכשיו") — 24 שעות. */
+export const MAP_TIMELINE_SLIDER_RANGE_MS = 24 * 60 * 60 * 1000;
+
+/** מעל טווח זה / מספר אירועים — בונים סגמנטים בדגימה גסה (דקה) כדי לא להכביד על ה־main thread. */
+const TIMELINE_BUCKET_SPAN_THRESHOLD_MS = 8 * 60 * 60 * 1000;
+const TIMELINE_BUCKET_INTERVAL_COUNT_THRESHOLD = 2000;
+/** דגימת ציר לטווחים ארוכים / עומס גבוה — דקה אחת לכל “פיקסל לוגי”. */
+const TIMELINE_BUCKET_MS = 60 * 1000;
 
 /** סדר עדיפות כשאין שכבת “מקדים / אסקלציה / סיום” מנצחת */
 const CATEGORY_PRIORITY: AlertCategory[] = [
@@ -86,15 +92,11 @@ function prepareIntervals(events: AlertEvent[], rangeStartMs: number, rangeEndMs
   return out;
 }
 
-export function buildTimelineSegments(
-  events: AlertEvent[],
+function buildTimelineSegmentsExact(
+  intervals: PreparedInterval[],
   rangeStartMs: number,
   rangeEndMs: number,
 ): TimelineSegment[] {
-  if (rangeEndMs <= rangeStartMs) return [];
-
-  const intervals = prepareIntervals(events, rangeStartMs, rangeEndMs);
-
   const boundaries = new Set<number>([rangeStartMs, rangeEndMs]);
   for (const x of intervals) {
     if (x.start >= rangeStartMs && x.start <= rangeEndMs) boundaries.add(x.start);
@@ -132,4 +134,78 @@ export function buildTimelineSegments(
   }
 
   return out;
+}
+
+/**
+ * טווחים ארוכים או אלפי אירועים — דגימה לפי דקה עם sweep אחד, O(buckets + N log N).
+ */
+function buildTimelineSegmentsBucketed(
+  intervals: PreparedInterval[],
+  rangeStartMs: number,
+  rangeEndMs: number,
+  bucketMs: number,
+): TimelineSegment[] {
+  if (rangeEndMs <= rangeStartMs || bucketMs <= 0) return [];
+
+  const sortedStarts = [...intervals].sort((a, b) => a.start - b.start);
+  const sortedEnds = [...intervals].sort((a, b) => a.end - b.end);
+  let si = 0;
+  let ei = 0;
+  const active = new Map<string, AlertEvent>();
+  const out: TimelineSegment[] = [];
+
+  const span = rangeEndMs - rangeStartMs;
+  const numBuckets = Math.ceil(span / bucketMs);
+
+  for (let bi = 0; bi < numBuckets; bi++) {
+    const bStart = rangeStartMs + bi * bucketMs;
+    const bEnd = Math.min(rangeEndMs, bStart + bucketMs);
+    const mid = (bStart + bEnd) / 2;
+
+    while (si < sortedStarts.length && sortedStarts[si]!.start <= mid) {
+      const x = sortedStarts[si++]!;
+      active.set(x.e.id, x.e);
+    }
+    while (ei < sortedEnds.length && sortedEnds[ei]!.end < mid) {
+      const x = sortedEnds[ei++]!;
+      active.delete(x.e.id);
+    }
+
+    const kind = dominantKindFromActive(Array.from(active.values()));
+    const last = out[out.length - 1];
+    if (last?.kind === kind) last.endMs = bEnd;
+    else out.push({ startMs: bStart, endMs: bEnd, kind });
+  }
+
+  return out;
+}
+
+export function buildTimelineSegments(
+  events: AlertEvent[],
+  rangeStartMs: number,
+  rangeEndMs: number,
+): TimelineSegment[] {
+  return buildTimelineSegmentsSmart(events, rangeStartMs, rangeEndMs);
+}
+
+/**
+ * בונה סגמנטים לפס הצבע: מדויק כשהעומס קטן, דגימה לפי דקה כשהטווח ארוך או יש אלפי חפיפות.
+ */
+export function buildTimelineSegmentsSmart(
+  events: AlertEvent[],
+  rangeStartMs: number,
+  rangeEndMs: number,
+): TimelineSegment[] {
+  if (rangeEndMs <= rangeStartMs) return [];
+
+  const intervals = prepareIntervals(events, rangeStartMs, rangeEndMs);
+  const span = rangeEndMs - rangeStartMs;
+  const useBucketed =
+    intervals.length > TIMELINE_BUCKET_INTERVAL_COUNT_THRESHOLD ||
+    (span >= TIMELINE_BUCKET_SPAN_THRESHOLD_MS && intervals.length > 400);
+
+  if (useBucketed) {
+    return buildTimelineSegmentsBucketed(intervals, rangeStartMs, rangeEndMs, TIMELINE_BUCKET_MS);
+  }
+  return buildTimelineSegmentsExact(intervals, rangeStartMs, rangeEndMs);
 }

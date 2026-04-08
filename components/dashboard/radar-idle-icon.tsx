@@ -31,6 +31,8 @@ const BLIP_OPACITY_MS = 480;
 const BLIP_OPACITY_EASE = 'ease-in-out';
 const BLIP_HYST_PAD = 8;
 const RING_STROKE_W = 2;
+/** רקע פנים הרדאר (בתוך העיגול החיצוני) */
+const RADAR_FACE_FILL = '#232323';
 const SW_A = 105;
 const SW_B = 172;
 
@@ -179,6 +181,7 @@ export function RadarIdleIcon({
           <stop offset="1" stopColor="#fff" stopOpacity={0.02} />
         </linearGradient>
       </defs>
+      <circle cx={C} cy={C} r={R_OUT} fill={RADAR_FACE_FILL} />
       <g transform="translate(28 28)">
         <g ref={sweepRef} transform="rotate(0)">
           <g transform="translate(-28 -28)">
@@ -189,7 +192,7 @@ export function RadarIdleIcon({
       <circle
         cx={C}
         cy={C}
-        r="22"
+        r={R_OUT}
         fill="none"
         stroke="#7a7a7a"
         strokeWidth={RING_STROKE_W}

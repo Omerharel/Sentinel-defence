@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
-import { createPortal } from 'react-dom';
 import type { AlertEvent } from '@/lib/alert-types';
 import { cityNameToEnglish } from '@/lib/city-name-en';
 import {
@@ -76,8 +75,6 @@ interface MapPanelProps {
   fadingEventIds?: readonly string[];
   /** בקשת התמקדות מלחיצה על תגית עיר בפאנל — `nonce` משתנה בכל לחיצה */
   focusCityRequest?: MapFocusCityRequest | null;
-  /** מובייל: יעד DOM ל־portal של ציר הזמן (מ־dashboard-shell) */
-  mobileTimelineHostEl?: HTMLDivElement | null;
 }
 
 function isEscalationCategory(c: AlertEvent['category']): boolean {
@@ -211,7 +208,6 @@ export function MapPanel({
   alerts,
   fadingEventIds = [],
   focusCityRequest = null,
-  mobileTimelineHostEl = null,
 }: MapPanelProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<any>(null);
@@ -833,9 +829,6 @@ export function MapPanel({
         };
         if (isLg) {
           return <MapTimelineStrip {...timelineStripProps} />;
-        }
-        if (mobileTimelineHostEl) {
-          return createPortal(<MapTimelineStrip {...timelineStripProps} inline />, mobileTimelineHostEl);
         }
         return null;
       })()}
