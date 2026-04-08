@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:static": "node scripts/static-export-build.mjs",
     "start": "next start",
     "lint": "tsc --noEmit",
     "import:polygons": "node scripts/import-tzeva-polygons.mjs"
