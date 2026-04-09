@@ -489,7 +489,7 @@ export function DashboardShell() {
           />
         </div>
 
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden lg:flex-row lg:gap-2">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden lg:flex-row lg:gap-3">
           <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-card lg:rounded-sm">
             <div className="pointer-events-none absolute inset-0 z-[1] bg-black/20 lg:hidden" aria-hidden />
             <div className="relative z-0 min-h-0 flex-1">
