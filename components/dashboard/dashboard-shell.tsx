@@ -27,6 +27,8 @@ import { getAlertListMergeMinuteKey } from '@/lib/dashboard-time';
 import { MAP_POLYGON_FADE_MS } from '@/lib/map-polygon-fade-ms';
 import { getApiUrl } from '@/lib/api-base';
 import { APP_VERSION } from '@/lib/app-version';
+import { buildDemoAlertEvents } from '@/lib/demo-alert-events';
+import { useIsLocalHost } from '@/lib/use-is-local-host';
 import { cn } from '@/lib/utils';
 
 const POLLING_INTERVAL_MS = 4000;
@@ -117,6 +119,21 @@ export function DashboardShell() {
   const prevActiveEventIdsRef = useRef<Set<string>>(new Set());
   const fadeOutStartedAtRef = useRef<Map<string, number>>(new Map());
   const [fadeListTick, setFadeListTick] = useState(0);
+  const showDemoControls = useIsLocalHost();
+  const [demoMode, setDemoMode] = useState(false);
+
+  const demoEvents = useMemo(
+    () => (demoMode ? buildDemoAlertEvents(Date.now()) : []),
+    [demoMode],
+  );
+
+  const effectiveHistoryEvents = useMemo(() => {
+    if (demoEvents.length === 0) return historyEvents;
+    const byId = new Map<string, AlertEvent>();
+    for (const e of historyEvents) byId.set(e.id, e);
+    for (const e of demoEvents) byId.set(e.id, e);
+    return Array.from(byId.values()).sort((a, b) => Date.parse(b.timestamp) - Date.parse(a.timestamp));
+  }, [historyEvents, demoEvents]);
 
   useEffect(() => {
     const id = window.setInterval(() => setFadeListTick((n) => n + 1), 100);
@@ -328,7 +345,7 @@ export function DashboardShell() {
     const now = Date.now();
 
     const activeIds = new Set<string>();
-    for (const e of historyEvents) {
+    for (const e of effectiveHistoryEvents) {
       if (isAlertEventInRightPanelListWindow(e, now)) activeIds.add(e.id);
     }
 
@@ -358,7 +375,7 @@ export function DashboardShell() {
       return 1 - k;
     };
 
-    const events = historyEvents.filter(
+    const events = effectiveHistoryEvents.filter(
       (e) =>
         isAlertEventInRightPanelListWindow(e, now) || fadeOutStartedAtRef.current.has(e.id),
     );
@@ -427,7 +444,7 @@ export function DashboardShell() {
       if (Number.isNaN(ta) || Number.isNaN(tb)) return 0;
       return tb - ta;
     });
-  }, [historyEvents, rightPanelTimeTick, fadeListTick]);
+  }, [effectiveHistoryEvents, rightPanelTimeTick, fadeListTick]);
 
   /** סנכרון מפה ↔ רשימה: אירועים ב־fade-out עדיין מקבלים פוליגון בזמן "עכשיו". */
   const fadingMapEventIds = useMemo(() => {
@@ -437,18 +454,18 @@ export function DashboardShell() {
       if (now - start < MAP_POLYGON_FADE_MS) out.push(id);
     }
     return out;
-  }, [historyEvents, fadeListTick, rightPanelTimeTick]);
+  }, [effectiveHistoryEvents, fadeListTick, rightPanelTimeTick]);
 
   const mapPanelEventPool = useMemo(() => {
     const now = Date.now();
-    const events = historyEvents.filter((e) => isAlertEventInListHistoryRetention(e, now));
+    const events = effectiveHistoryEvents.filter((e) => isAlertEventInListHistoryRetention(e, now));
     const sorted = [...events].sort((a, b) => Date.parse(b.timestamp) - Date.parse(a.timestamp));
     const byId = new Map<string, AlertEvent>();
     for (const e of sorted) {
       if (!byId.has(e.id)) byId.set(e.id, e);
     }
     return Array.from(byId.values());
-  }, [historyEvents]);
+  }, [effectiveHistoryEvents]);
 
   const summary = useMemo(
     () => ({
@@ -482,14 +499,29 @@ export function DashboardShell() {
       <main className="flex-1 flex min-h-0 flex-col gap-0 overflow-hidden lg:gap-2 lg:p-4">
         <div className="hidden w-full flex-wrap items-center justify-between gap-3 lg:flex">
           <LastUpdate fetchedAt={summary.fetchedAt} isLoading={isLoading} />
-          <SettingsMenu
-            silentAlerts={silentAlerts}
-            onSilentAlertsChange={handleSilentAlertsChange}
-            triggerClassName="inline-flex h-9 w-9 shrink-0 items-center justify-center text-white transition-colors hover:bg-white/10 focus-visible:outline-none"
-          />
+          <div className="flex items-center gap-2">
+            {showDemoControls ? (
+              <button
+                type="button"
+                onClick={() => setDemoMode((v) => !v)}
+                aria-pressed={demoMode}
+                className={cn(
+                  'inline-flex h-9 shrink-0 items-center rounded-[12px] px-3 text-sm font-medium text-white transition-colors focus-visible:outline-none',
+                  demoMode ? 'bg-white/20' : 'hover:bg-white/10',
+                )}
+              >
+                Demo
+              </button>
+            ) : null}
+            <SettingsMenu
+              silentAlerts={silentAlerts}
+              onSilentAlertsChange={handleSilentAlertsChange}
+              triggerClassName="inline-flex h-9 w-9 shrink-0 items-center justify-center text-white transition-colors hover:bg-white/10 focus-visible:outline-none"
+            />
+          </div>
         </div>
 
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden lg:flex-row lg:gap-3">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden lg:flex-row lg:gap-[12px]">
           <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-card lg:rounded-sm">
             <div className="pointer-events-none absolute inset-0 z-[1] bg-black/20 lg:hidden" aria-hidden />
             <div className="relative z-0 min-h-0 flex-1">
@@ -521,11 +553,26 @@ export function DashboardShell() {
                 <div className="rounded-full bg-black/45 px-4 py-2 backdrop-blur-md">
                   <LastUpdate fetchedAt={summary.fetchedAt} isLoading={isLoading} />
                 </div>
-                <SettingsMenu
-                  silentAlerts={silentAlerts}
-                  onSilentAlertsChange={handleSilentAlertsChange}
-                  triggerClassName="inline-flex h-10 w-10 shrink-0 items-center justify-center border-none bg-black/45 text-white backdrop-blur-md transition-colors hover:bg-black/55 focus-visible:outline-none"
-                />
+                <div className="flex items-center gap-2">
+                  {showDemoControls ? (
+                    <button
+                      type="button"
+                      onClick={() => setDemoMode((v) => !v)}
+                      aria-pressed={demoMode}
+                      className={cn(
+                        'inline-flex h-10 shrink-0 items-center rounded-full border-none px-3 text-sm font-medium text-white backdrop-blur-md transition-colors focus-visible:outline-none',
+                        demoMode ? 'bg-black/55' : 'bg-black/45 hover:bg-black/55',
+                      )}
+                    >
+                      Demo
+                    </button>
+                  ) : null}
+                  <SettingsMenu
+                    silentAlerts={silentAlerts}
+                    onSilentAlertsChange={handleSilentAlertsChange}
+                    triggerClassName="inline-flex h-10 w-10 shrink-0 items-center justify-center border-none bg-black/45 text-white backdrop-blur-md transition-colors hover:bg-black/55 focus-visible:outline-none"
+                  />
+                </div>
               </div>
               <div className="pointer-events-auto min-h-0 max-h-[min(52vh,calc(100dvh-10rem))] w-full overflow-y-auto overflow-x-hidden rounded-2xl border border-border/90 bg-background shadow-[0_-8px_40px_rgba(0,0,0,0.45)]">
                 <RightPanel

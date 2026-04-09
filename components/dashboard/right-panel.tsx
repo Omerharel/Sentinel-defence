@@ -262,12 +262,17 @@ export function RightPanel({
     );
   };
 
-  const scrollBody = mobileSheet ? 'overflow-visible' : 'min-h-0 flex-1 overflow-y-auto';
   const rootSheet = mobileSheet ? 'flex flex-col bg-background' : 'flex flex-col h-full min-h-0 overflow-hidden bg-background';
 
   return (
     <div className={rootSheet}>
-      <div className={`${scrollBody} bg-background w-full min-w-0 px-4 lg:px-0`}>
+      <div
+        className={
+          mobileSheet
+            ? 'overflow-visible bg-background w-full min-w-0 px-4 lg:px-20'
+            : 'min-h-0 flex-1 overflow-y-auto bg-background w-full min-w-0 px-4 lg:px-20'
+        }
+      >
         {groupedAlerts.length === 0 ? (
           <div
             className={`flex flex-col items-center justify-center bg-background ${

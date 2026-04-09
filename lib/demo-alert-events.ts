@@ -60,5 +60,18 @@ export function buildDemoAlertEvents(nowMs: number): AlertEvent[] {
       endedCategory: 'rockets',
       polygonId: getRegionIdForCity(BEER_SHEVA_EAST),
     },
+    /** כטב״ם פעיל בת״א — לתצוגת דמו במפה (פוליגון + צבעים) בזמן אמת */
+    (() => {
+      const t0 = nowMs - 60_000;
+      return {
+        id: id('tlv-hostile-active'),
+        city: TLV,
+        timestamp: new Date(t0).toISOString(),
+        expiresAt: new Date(t0 + 10 * 60 * 1000).toISOString(),
+        source: 'oref',
+        category: 'hostile aircraft',
+        polygonId: getRegionIdForCity(TLV),
+      } satisfies AlertEvent;
+    })(),
   ];
 }

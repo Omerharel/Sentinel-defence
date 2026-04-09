@@ -650,6 +650,8 @@ export function MapPanel({
                   ['get', 'category'],
                   'early warning',
                   0.2,
+                  'hostile aircraft',
+                  0.2,
                   0.1,
                 ],
               ],
