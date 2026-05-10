@@ -11,3 +11,5 @@ out/
 .env*.local
 .DS_Store
 .cursor/*.log
+.open-next/
+alerts-proxy/node_modules/

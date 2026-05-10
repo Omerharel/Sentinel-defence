@@ -32,7 +32,7 @@ try {
   const r = spawnSync(npm, ['run', 'build'], {
     cwd: root,
     stdio: 'inherit',
-    env: { ...process.env, STATIC_EXPORT: 'true' },
+    env: { ...process.env, STATIC_EXPORT: 'true', NEXT_PUBLIC_API_BASE: '' },
   });
   code = r.status ?? 1;
 } finally {

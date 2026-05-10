@@ -4,7 +4,7 @@
  */
 const STATIC_HOSTED_FALLBACK_API_BASE =
   process.env.NEXT_PUBLIC_STATIC_FALLBACK_API_BASE?.trim().replace(/\/$/, '') ??
-  'https://sentinel-defence-production.up.railway.app';
+  'https://npk6sjt4cpzed2xra3ypnqc72m0fzqnl.lambda-url.us-east-1.on.aws';
 
 export function getApiUrl(pathAndQuery: string): string {
   const normalizedPath = pathAndQuery.startsWith('/') ? pathAndQuery : `/${pathAndQuery}`;

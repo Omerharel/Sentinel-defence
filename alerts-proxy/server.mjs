@@ -31,6 +31,7 @@ const ALLOWED_ORIGINS = new Set(
     'http://localhost:3000',
     'http://127.0.0.1:3000',
     'http://sentinel-defence-site.s3-website.eu-north-1.amazonaws.com',
+    'https://d3ckcd2jrbb4b.cloudfront.net',
     process.env.CORS_ALLOW_ORIGIN?.trim(),
   ].filter(Boolean),
 );
